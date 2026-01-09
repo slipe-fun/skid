@@ -2,8 +2,9 @@ package protocol
 
 import (
 	"crypto/ed25519"
-	"skid/internal/crypto"
-	"skid/pkg/identity"
+
+	"github.com/slipe-fun/skid/internal/crypto"
+	"github.com/slipe-fun/skid/pkg/identity"
 )
 
 type EncryptedMessage struct {

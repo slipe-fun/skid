@@ -1,4 +1,4 @@
-module skid
+module github.com/slipe-fun/skid
 
 go 1.25.5
 

@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"skid/pkg/identity"
-	"skid/pkg/protocol"
+
+	"github.com/slipe-fun/skid/pkg/identity"
+	"github.com/slipe-fun/skid/pkg/protocol"
 )
 
 func main() {

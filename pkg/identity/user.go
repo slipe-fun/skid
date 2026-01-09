@@ -1,7 +1,7 @@
 package identity
 
 import (
-	"skid/internal/crypto"
+	"github.com/slipe-fun/skid/internal/crypto"
 )
 
 type UserPrivate struct {

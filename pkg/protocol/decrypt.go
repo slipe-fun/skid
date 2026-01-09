@@ -3,8 +3,9 @@ package protocol
 import (
 	"crypto/ed25519"
 	"errors"
-	"skid/internal/crypto"
-	"skid/pkg/identity"
+
+	"github.com/slipe-fun/skid/internal/crypto"
+	"github.com/slipe-fun/skid/pkg/identity"
 )
 
 func Decrypt(encrypted *EncryptedMessage, receiverPublicKeys *identity.UserPublic, receiverPrivateKeys *identity.UserPrivate, senderPublicKeys *identity.UserPublic, isAuthor bool) ([]byte, error) {
