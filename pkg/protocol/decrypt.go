@@ -1,13 +1,18 @@
 package protocol
 
 import (
+	"crypto/ed25519"
+	"errors"
 	"skid/internal/crypto"
 	"skid/pkg/identity"
 )
 
 func Decrypt(encrypted *EncryptedMessage, receiverPublicKeys *identity.UserPublic, receiverPrivateKeys *identity.UserPrivate, senderPublicKeys *identity.UserPublic, isAuthor bool) ([]byte, error) {
+	if !ed25519.Verify(senderPublicKeys.Ed25519Key, encrypted.Ciphertext, encrypted.Signature) {
+		return nil, errors.New("invalid signature")
+	}
+
 	var cek []byte
-	var err error
 
 	if isAuthor {
 		ssSender, err := crypto.HybridDecrypt(

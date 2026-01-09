@@ -22,7 +22,7 @@ func main() {
 		panic(err)
 	}
 
-	authorDecrypted, err := protocol.Decrypt(encrypted, alicePublicKeys, alicePrivateKeys, bobPublicKeys, true)
+	authorDecrypted, err := protocol.Decrypt(encrypted, alicePublicKeys, alicePrivateKeys, alicePublicKeys, true)
 	if err != nil {
 		panic(err)
 	}
