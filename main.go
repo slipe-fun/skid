@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/slipe-fun/skid/internal/crypto"
 	"github.com/slipe-fun/skid/pkg/identity"
 	"github.com/slipe-fun/skid/pkg/protocol"
 )
@@ -18,22 +19,22 @@ func main() {
 		panic(err)
 	}
 
-	encrypted, err := protocol.Encrypt("Hello", alicePublicKeys, alicePrivateKeys, bobPublicKeys)
+	chatKey, err := crypto.RandomBytes(32)
 	if err != nil {
 		panic(err)
 	}
 
-	authorDecrypted, err := protocol.Decrypt(encrypted, alicePublicKeys, alicePrivateKeys, alicePublicKeys, true)
+	encrypted, err := protocol.Encrypt(chatKey, alicePrivateKeys, bobPublicKeys)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Printf("Author decrypted message: %s\n", string(authorDecrypted))
+	fmt.Printf("Encrypted key: %s\n", string(chatKey))
 
-	decrypted, err := protocol.Decrypt(encrypted, bobPublicKeys, bobPrivateKeys, alicePublicKeys, false)
+	decrypted, err := protocol.Decrypt(encrypted, bobPrivateKeys, alicePublicKeys)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Printf("Decrypted message: %s\n", string(decrypted))
+	fmt.Printf("Decrypted key: %s\n", string(decrypted))
 }

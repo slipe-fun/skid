@@ -8,53 +8,29 @@ import (
 	"github.com/slipe-fun/skid/pkg/identity"
 )
 
-func Decrypt(encrypted *EncryptedMessage, receiverPublicKeys *identity.UserPublic, receiverPrivateKeys *identity.UserPrivate, senderPublicKeys *identity.UserPublic, isAuthor bool) ([]byte, error) {
+func Decrypt(encrypted *EncryptedMessage, receiverPrivateKeys *identity.UserPrivate, senderPublicKeys *identity.UserPublic) ([]byte, error) {
 	if !ed25519.Verify(senderPublicKeys.Ed25519Key, encrypted.Ciphertext, encrypted.Signature) {
 		return nil, errors.New("invalid signature")
 	}
 
-	var cek []byte
+	ssReceiver, err := crypto.HybridDecrypt(
+		senderPublicKeys.ECDHKey,
+		receiverPrivateKeys.ECDHKey,
+		receiverPrivateKeys.KyberKey,
+		encrypted.EncapsulatedKey,
+	)
+	if err != nil {
+		return nil, err
+	}
 
-	if isAuthor {
-		ssSender, err := crypto.HybridDecrypt(
-			receiverPublicKeys.ECDHKey,
-			receiverPrivateKeys.ECDHKey,
-			receiverPrivateKeys.KyberKey,
-			encrypted.EncapsulatedKeySender,
-		)
-		if err != nil {
-			return nil, err
-		}
+	kekReceiver, err := crypto.DeriveAesKey(ssReceiver, encrypted.CekWrapSalt)
+	if err != nil {
+		return nil, err
+	}
 
-		kekSender, err := crypto.DeriveAesKey(ssSender, encrypted.WrapSaltSender)
-		if err != nil {
-			return nil, err
-		}
-
-		cek, err = crypto.Decrypt(kekSender, encrypted.WrapIVSender, encrypted.WrappedCekSender)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		ssReceiver, err := crypto.HybridDecrypt(
-			senderPublicKeys.ECDHKey,
-			receiverPrivateKeys.ECDHKey,
-			receiverPrivateKeys.KyberKey,
-			encrypted.EncapsulatedKey,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		kekReceiver, err := crypto.DeriveAesKey(ssReceiver, encrypted.WrapSaltReceiver)
-		if err != nil {
-			return nil, err
-		}
-
-		cek, err = crypto.Decrypt(kekReceiver, encrypted.WrapIVReceiver, encrypted.WrappedCekReceiver)
-		if err != nil {
-			return nil, err
-		}
+	cek, err := crypto.Decrypt(kekReceiver, encrypted.CekWrapIV, encrypted.CekWrap)
+	if err != nil {
+		return nil, err
 	}
 
 	plaintext, err := crypto.Decrypt(cek, encrypted.IV, encrypted.Ciphertext)

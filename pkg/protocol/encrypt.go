@@ -8,20 +8,16 @@ import (
 )
 
 type EncryptedMessage struct {
-	Ciphertext            []byte
-	IV                    []byte
-	EncapsulatedKey       []byte
-	WrappedCekReceiver    []byte
-	WrapIVReceiver        []byte
-	WrapSaltReceiver      []byte
-	EncapsulatedKeySender []byte
-	WrappedCekSender      []byte
-	WrapIVSender          []byte
-	WrapSaltSender        []byte
-	Signature             []byte
+	Ciphertext      []byte
+	IV              []byte
+	EncapsulatedKey []byte
+	CekWrap         []byte
+	CekWrapIV       []byte
+	CekWrapSalt     []byte
+	Signature       []byte
 }
 
-func Encrypt(content string, senderPublicKeys *identity.UserPublic, senderPrivateKeys *identity.UserPrivate, receiverPublicKeys *identity.UserPublic) (*EncryptedMessage, error) {
+func Encrypt(content []byte, senderPrivateKeys *identity.UserPrivate, receiverPublicKeys *identity.UserPublic) (*EncryptedMessage, error) {
 	resRecv, err := crypto.HybridEncrypt(receiverPublicKeys.ECDHKey, receiverPublicKeys.KyberKey, senderPrivateKeys.ECDHKey)
 	if err != nil {
 		return nil, err
@@ -47,23 +43,7 @@ func Encrypt(content string, senderPublicKeys *identity.UserPublic, senderPrivat
 		return nil, err
 	}
 
-	resSender, err := crypto.HybridEncrypt(senderPublicKeys.ECDHKey, senderPublicKeys.KyberKey, senderPrivateKeys.ECDHKey)
-	if err != nil {
-		return nil, err
-	}
-
-	wrapSaltSender, err := crypto.RandomBytes(32)
-	if err != nil {
-		return nil, err
-	}
-
-	kekSender, err := crypto.DeriveAesKey(resSender.SessionKey, wrapSaltSender)
-	wrappedCekSender, wrapIVSender, err := crypto.Encrypt(kekSender, cekRaw)
-	if err != nil {
-		return nil, err
-	}
-
-	ciphertext, iv, err := crypto.Encrypt(cekRaw, []byte(content))
+	ciphertext, iv, err := crypto.Encrypt(cekRaw, content)
 	if err != nil {
 		return nil, err
 	}
@@ -71,16 +51,12 @@ func Encrypt(content string, senderPublicKeys *identity.UserPublic, senderPrivat
 	signature := ed25519.Sign(senderPrivateKeys.Ed25519Key, ciphertext)
 
 	return &EncryptedMessage{
-		Ciphertext:            ciphertext,
-		IV:                    iv,
-		EncapsulatedKey:       resRecv.CipherText,
-		WrappedCekReceiver:    wrappedCekReceiver,
-		WrapIVReceiver:        wrapIvReceiver,
-		WrapSaltReceiver:      wrapSaltReceiver,
-		EncapsulatedKeySender: resSender.CipherText,
-		WrappedCekSender:      wrappedCekSender,
-		WrapIVSender:          wrapIVSender,
-		WrapSaltSender:        wrapSaltSender,
-		Signature:             signature,
+		Ciphertext:      ciphertext,
+		IV:              iv,
+		EncapsulatedKey: resRecv.CipherText,
+		CekWrap:         wrappedCekReceiver,
+		CekWrapIV:       wrapIvReceiver,
+		CekWrapSalt:     wrapSaltReceiver,
+		Signature:       signature,
 	}, nil
 }
