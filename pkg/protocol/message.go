@@ -1,6 +1,9 @@
 package protocol
 
+const CurrentVersion uint8 = 1
+
 type EncryptedMessage struct {
+	Version         uint8  `json:"v"`
 	Ciphertext      []byte `json:"ciphertext"`
 	IV              []byte `json:"iv"`
 	EncapsulatedKey []byte `json:"encapsulated_key"`

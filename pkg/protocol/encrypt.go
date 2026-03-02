@@ -39,6 +39,7 @@ func Encrypt(content []byte, senderPrivateKeys *identity.UserPrivate, receiverPu
 	}
 
 	msg := &EncryptedMessage{
+		Version:         CurrentVersion,
 		Ciphertext:      ciphertext,
 		IV:              iv,
 		EncapsulatedKey: resRecv.CipherText,
