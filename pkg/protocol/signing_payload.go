@@ -1,9 +1,19 @@
 package protocol
 
-import "encoding/json"
+import (
+	"encoding/json"
 
-func (m *EncryptedMessage) signingPayload() ([]byte, error) {
-	tmp := *m
+	"github.com/slipe-fun/skid/pkg/identity"
+)
+
+func (m *EncryptedMessage) signingPayload(senderPublicKeys *identity.UserPublic) ([]byte, error) {
+	tmp := struct {
+		EncryptedMessage
+		identity.UserPublic
+	}{
+		EncryptedMessage: *m,
+		UserPublic:       *senderPublicKeys,
+	}
 	tmp.Signature = nil
 	return json.Marshal(tmp)
 }

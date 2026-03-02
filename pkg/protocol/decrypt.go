@@ -8,8 +8,8 @@ import (
 	"github.com/slipe-fun/skid/pkg/identity"
 )
 
-func Decrypt(encrypted *EncryptedMessage, receiverPrivateKeys *identity.UserPrivate, senderPublicKeys *identity.UserPublic) ([]byte, error) {
-	payload, err := encrypted.signingPayload()
+func Decrypt(encrypted *EncryptedMessage, receiverPrivateKeys *identity.UserPrivate, receiverPublicKeys *identity.UserPublic, senderPublicKeys *identity.UserPublic) ([]byte, error) {
+	payload, err := encrypted.signingPayload(receiverPublicKeys)
 	if err != nil {
 		panic(err)
 	}

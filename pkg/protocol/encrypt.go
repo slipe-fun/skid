@@ -47,7 +47,7 @@ func Encrypt(content []byte, senderPrivateKeys *identity.UserPrivate, receiverPu
 		CekWrapSalt:     wrapSaltReceiver,
 	}
 
-	payload, err := msg.signingPayload()
+	payload, err := msg.signingPayload(receiverPublicKeys)
 	if err != nil {
 		panic(err)
 	}

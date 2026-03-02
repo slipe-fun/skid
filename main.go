@@ -31,7 +31,7 @@ func main() {
 
 	fmt.Printf("Encrypted key: %s\n", string(chatKey))
 
-	decrypted, err := protocol.Decrypt(encrypted, bobPrivateKeys, alicePublicKeys)
+	decrypted, err := protocol.Decrypt(encrypted, bobPrivateKeys, bobPublicKeys, alicePublicKeys)
 	if err != nil {
 		panic(err)
 	}

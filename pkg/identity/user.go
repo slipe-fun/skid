@@ -11,9 +11,9 @@ type UserPrivate struct {
 }
 
 type UserPublic struct {
-	KyberKey   []byte
-	ECDHKey    []byte
-	Ed25519Key []byte
+	KyberKey   []byte `json:"kyber_key"`
+	ECDHKey    []byte `json:"ecdh_key"`
+	Ed25519Key []byte `json:"ed_key"`
 }
 
 func NewUser() (*UserPrivate, *UserPublic, error) {
