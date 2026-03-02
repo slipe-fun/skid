@@ -9,7 +9,12 @@ import (
 )
 
 func Decrypt(encrypted *EncryptedMessage, receiverPrivateKeys *identity.UserPrivate, senderPublicKeys *identity.UserPublic) ([]byte, error) {
-	if !ed25519.Verify(senderPublicKeys.Ed25519Key, encrypted.Ciphertext, encrypted.Signature) {
+	payload, err := encrypted.signingPayload()
+	if err != nil {
+		panic(err)
+	}
+
+	if !ed25519.Verify(senderPublicKeys.Ed25519Key, payload, encrypted.Signature) {
 		return nil, errors.New("invalid signature")
 	}
 

@@ -7,16 +7,6 @@ import (
 	"github.com/slipe-fun/skid/pkg/identity"
 )
 
-type EncryptedMessage struct {
-	Ciphertext      []byte
-	IV              []byte
-	EncapsulatedKey []byte
-	CekWrap         []byte
-	CekWrapIV       []byte
-	CekWrapSalt     []byte
-	Signature       []byte
-}
-
 func Encrypt(content []byte, senderPrivateKeys *identity.UserPrivate, receiverPublicKeys *identity.UserPublic) (*EncryptedMessage, error) {
 	resRecv, err := crypto.HybridEncrypt(receiverPublicKeys.ECDHKey, receiverPublicKeys.KyberKey, senderPrivateKeys.ECDHKey)
 	if err != nil {
@@ -48,15 +38,21 @@ func Encrypt(content []byte, senderPrivateKeys *identity.UserPrivate, receiverPu
 		return nil, err
 	}
 
-	signature := ed25519.Sign(senderPrivateKeys.Ed25519Key, ciphertext)
-
-	return &EncryptedMessage{
+	msg := &EncryptedMessage{
 		Ciphertext:      ciphertext,
 		IV:              iv,
 		EncapsulatedKey: resRecv.CipherText,
 		CekWrap:         wrappedCekReceiver,
 		CekWrapIV:       wrapIvReceiver,
 		CekWrapSalt:     wrapSaltReceiver,
-		Signature:       signature,
-	}, nil
+	}
+
+	payload, err := msg.signingPayload()
+	if err != nil {
+		panic(err)
+	}
+
+	msg.Signature = ed25519.Sign(senderPrivateKeys.Ed25519Key, payload)
+
+	return msg, nil
 }
