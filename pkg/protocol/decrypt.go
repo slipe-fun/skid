@@ -9,12 +9,16 @@ import (
 	"github.com/slipe-fun/skid/pkg/identity"
 )
 
-func Decrypt(encrypted *EncryptedMessage, receiverPrivateKeys *identity.UserPrivate, receiverPublicKeys *identity.UserPublic, senderPublicKeys *identity.UserPublic) ([]byte, error) {
+func Decrypt(encrypted *EncryptedMessage, lastSequence uint64, receiverPrivateKeys *identity.UserPrivate, receiverPublicKeys *identity.UserPublic, senderPublicKeys *identity.UserPublic) ([]byte, error) {
 	switch encrypted.Version {
 	case 1:
 		payload, err := encrypted.signingPayload(receiverPublicKeys)
 		if err != nil {
 			return nil, err
+		}
+
+		if encrypted.Sequence <= lastSequence {
+			return nil, errors.New("invalid sequence")
 		}
 
 		if !ed25519.Verify(senderPublicKeys.Ed25519Key, payload, encrypted.Signature) {

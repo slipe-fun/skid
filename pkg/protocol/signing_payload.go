@@ -14,6 +14,7 @@ func (m *EncryptedMessage) signingPayload(receiverPub *identity.UserPublic) ([]b
 	domainHash := sha256.Sum256([]byte("SKID-PROTOCOL-V1"))
 	b.Write(domainHash[:])
 	b.WriteByte(m.Version)
+	binary.Write(&b, binary.BigEndian, m.Sequence)
 
 	writeWithLen := func(data []byte) {
 		binary.Write(&b, binary.BigEndian, uint32(len(data)))

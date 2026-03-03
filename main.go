@@ -24,14 +24,16 @@ func main() {
 		panic(err)
 	}
 
-	encrypted, err := protocol.Encrypt(chatKey, alicePrivateKeys, bobPublicKeys)
+	lastSecuence := uint64(1734)
+
+	encrypted, err := protocol.Encrypt(chatKey, lastSecuence, alicePrivateKeys, bobPublicKeys)
 	if err != nil {
 		panic(err)
 	}
 
 	fmt.Printf("Encrypted key: %s\n", string(chatKey))
 
-	decrypted, err := protocol.Decrypt(encrypted, bobPrivateKeys, bobPublicKeys, alicePublicKeys)
+	decrypted, err := protocol.Decrypt(encrypted, lastSecuence, bobPrivateKeys, bobPublicKeys, alicePublicKeys)
 	if err != nil {
 		panic(err)
 	}
