@@ -50,7 +50,7 @@ func Encrypt(content []byte, senderPrivateKeys *identity.UserPrivate, receiverPu
 
 	payload, err := msg.signingPayload(receiverPublicKeys)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	msg.Signature = ed25519.Sign(senderPrivateKeys.Ed25519Key, payload)

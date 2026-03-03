@@ -14,7 +14,7 @@ func Decrypt(encrypted *EncryptedMessage, receiverPrivateKeys *identity.UserPriv
 	case 1:
 		payload, err := encrypted.signingPayload(receiverPublicKeys)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		if !ed25519.Verify(senderPublicKeys.Ed25519Key, payload, encrypted.Signature) {
