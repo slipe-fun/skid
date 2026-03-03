@@ -36,12 +36,12 @@ func Decrypt(encrypted *EncryptedMessage, receiverPrivateKeys *identity.UserPriv
 			return nil, err
 		}
 
-		cek, err := crypto.Decrypt(kekReceiver, encrypted.CekWrapIV, encrypted.CekWrap)
+		cek, err := crypto.Decrypt(kekReceiver, encrypted.CekWrapIV, encrypted.CekWrap, encrypted.EncapsulatedKey)
 		if err != nil {
 			return nil, err
 		}
 
-		plaintext, err := crypto.Decrypt(cek, encrypted.IV, encrypted.Ciphertext)
+		plaintext, err := crypto.Decrypt(cek, encrypted.IV, encrypted.Ciphertext, encrypted.EncapsulatedKey)
 		if err != nil {
 			return nil, err
 		}

@@ -28,12 +28,12 @@ func Encrypt(content []byte, senderPrivateKeys *identity.UserPrivate, receiverPu
 		return nil, err
 	}
 
-	wrappedCekReceiver, wrapIvReceiver, err := crypto.Encrypt(kekReceiver, cekRaw)
+	wrappedCekReceiver, wrapIvReceiver, err := crypto.Encrypt(kekReceiver, cekRaw, resRecv.CipherText)
 	if err != nil {
 		return nil, err
 	}
 
-	ciphertext, iv, err := crypto.Encrypt(cekRaw, content)
+	ciphertext, iv, err := crypto.Encrypt(cekRaw, content, resRecv.CipherText)
 	if err != nil {
 		return nil, err
 	}

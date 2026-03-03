@@ -21,13 +21,13 @@ func DeriveAesKey(sessionKey, salt []byte) ([]byte, error) {
 	return key, nil
 }
 
-func Encrypt(key, plaintext []byte) ([]byte, []byte, error) {
+func Encrypt(key, plaintext, aad []byte) ([]byte, []byte, error) {
 	aes, err := NewAes(key)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	fullResult, err := aes.Encrypt(plaintext, nil)
+	fullResult, err := aes.Encrypt(plaintext, aad)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -35,7 +35,7 @@ func Encrypt(key, plaintext []byte) ([]byte, []byte, error) {
 	return fullResult[:12], fullResult[12:], nil
 }
 
-func Decrypt(key, ciphertext, iv []byte) ([]byte, error) {
+func Decrypt(key, ciphertext, iv, aad []byte) ([]byte, error) {
 	aes, err := NewAes(key)
 	if err != nil {
 		return nil, err
@@ -43,5 +43,5 @@ func Decrypt(key, ciphertext, iv []byte) ([]byte, error) {
 
 	fullCiphertext := append(iv, ciphertext...)
 
-	return aes.Decrypt(fullCiphertext, nil)
+	return aes.Decrypt(fullCiphertext, aad)
 }
