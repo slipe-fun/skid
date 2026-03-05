@@ -9,11 +9,13 @@ import (
 )
 
 func main() {
+	aliceSessionID := "5"
 	alicePrivateKeys, alicePublicKeys, err := identity.NewUser()
 	if err != nil {
 		panic(err)
 	}
 
+	bobSessionID := "18"
 	bobPrivateKeys, bobPublicKeys, err := identity.NewUser()
 	if err != nil {
 		panic(err)
@@ -24,16 +26,16 @@ func main() {
 		panic(err)
 	}
 
-	lastSecuence := uint64(1734)
+	epoch := uint32(1)
 
-	encrypted, err := protocol.Encrypt(chatKey, lastSecuence, alicePrivateKeys, bobPublicKeys)
+	encrypted, err := protocol.Encrypt(chatKey, epoch, alicePrivateKeys, aliceSessionID, bobPublicKeys, bobSessionID)
 	if err != nil {
 		panic(err)
 	}
 
 	fmt.Printf("Encrypted key: %s\n", string(chatKey))
 
-	decrypted, err := protocol.Decrypt(encrypted, lastSecuence, bobPrivateKeys, bobPublicKeys, alicePublicKeys)
+	decrypted, err := protocol.Decrypt(encrypted, epoch, bobPrivateKeys, bobPublicKeys, bobSessionID, alicePublicKeys, aliceSessionID)
 	if err != nil {
 		panic(err)
 	}
