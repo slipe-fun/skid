@@ -64,7 +64,7 @@ func Encrypt(content []byte, epoch uint32, senderPrivateKeys *identity.UserPriva
 	msg.Ciphertext = ciphertext
 	msg.IV = iv
 
-	payload, err := msg.signingPayload(senderPublicKeys, receiverPublicKeys, []byte(receiverSessionID), []byte(senderSessionID))
+	payload, err := msg.signingPayload(senderPublicKeys, receiverPublicKeys, []byte(senderSessionID), []byte(receiverSessionID))
 	if err != nil {
 		return nil, err
 	}
