@@ -22,7 +22,10 @@ func NewUser() (*UserPrivate, *UserPublic, error) {
 		return nil, nil, err
 	}
 
-	ecdhPublicKey, ecdhSecretKey := crypto.GenerateECDHKeyPair()
+	ecdhPublicKey, ecdhSecretKey, err := crypto.GenerateECDHKeyPair()
+	if err != nil {
+		return nil, nil, err
+	}
 
 	ed25519PublicKey, ed25519SecretKey, err := crypto.GenerateEd25519KeyPair()
 	if err != nil {

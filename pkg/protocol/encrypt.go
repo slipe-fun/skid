@@ -8,9 +8,12 @@ import (
 )
 
 func Encrypt(content []byte, epoch uint32, senderPrivateKeys *identity.UserPrivate, senderPublicKeys *identity.UserPublic, senderSessionID string, receiverPublicKeys *identity.UserPublic, receiverSessionID string) (*EncryptedMessage, error) {
-	ephemeralPubKey, ephemeralPrivKey := crypto.GenerateECDHKeyPair()
+	ephemeralPubKey, ephemeralPrivKey, err := crypto.GenerateECDHKeyPair()
+	if err != nil {
+		return nil, err
+	}
 
-	resRecv, err := crypto.HybridEncrypt(receiverPublicKeys.ECDHKey, receiverPublicKeys.KyberKey, ephemeralPrivKey)
+	resRecv, err := crypto.HybridEncrypt(receiverPublicKeys.ECDHKey, receiverPublicKeys.KyberKey, ephemeralPrivKey, ephemeralPubKey)
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +34,7 @@ func Encrypt(content []byte, epoch uint32, senderPrivateKeys *identity.UserPriva
 
 	kekSalt := append(wrapSaltReceiver, kdfContext...)
 
-	kekReceiver, err := crypto.DeriveAesKey(resRecv.SessionKey, kekSalt)
+	kekReceiver, err := crypto.DeriveAesKey(resRecv.SessionKey, kekSalt, "client-to-server")
 	if err != nil {
 		return nil, err
 	}

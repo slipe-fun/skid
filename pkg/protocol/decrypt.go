@@ -28,7 +28,9 @@ func Decrypt(encrypted *EncryptedMessage, epoch uint32, receiverPrivateKeys *ide
 		ssReceiver, err := crypto.HybridDecrypt(
 			encrypted.SenderEphemeralECDH,
 			receiverPrivateKeys.ECDHKey,
+			receiverPublicKeys.ECDHKey,
 			receiverPrivateKeys.KyberKey,
+			receiverPublicKeys.KyberKey,
 			encrypted.EncapsulatedKey,
 		)
 		if err != nil {
@@ -41,7 +43,7 @@ func Decrypt(encrypted *EncryptedMessage, epoch uint32, receiverPrivateKeys *ide
 
 		kekSalt := append(encrypted.CekWrapSalt, kdfContext...)
 
-		kekReceiver, err := crypto.DeriveAesKey(ssReceiver, kekSalt)
+		kekReceiver, err := crypto.DeriveAesKey(ssReceiver, kekSalt, "server-to-client")
 		if err != nil {
 			return nil, err
 		}

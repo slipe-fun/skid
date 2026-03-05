@@ -1,6 +1,9 @@
 package crypto
 
-import "crypto/rand"
+import (
+	"crypto/rand"
+	"encoding/binary"
+)
 
 func RandomBytes(n int) ([]byte, error) {
 	b := make([]byte, n)
@@ -11,10 +14,13 @@ func RandomBytes(n int) ([]byte, error) {
 	return b, nil
 }
 
-func GeneratePadding() string {
-	bytes, err := RandomBytes(16)
-	if err != nil {
-		return ""
+func AppendWithLength(parts ...[]byte) []byte {
+	var res []byte
+	for _, p := range parts {
+		length := make([]byte, 4)
+		binary.BigEndian.PutUint32(length, uint32(len(p)))
+		res = append(res, length...)
+		res = append(res, p...)
 	}
-	return string(bytes)
+	return res
 }

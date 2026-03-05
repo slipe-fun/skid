@@ -12,15 +12,20 @@ type HybridResult struct {
 	CipherText []byte
 }
 
-func HybridEncrypt(receiverECDHPublic, receiverKyberPublic, senderECDHPrivate []byte) (*HybridResult, error) {
-	ECDHSS := DeriveECDHSharedSecret(senderECDHPrivate, receiverECDHPublic)
+func HybridEncrypt(receiverECDHPublic, receiverKyberPublic, senderECDHPrivate, senderECDHPublic []byte) (*HybridResult, error) {
+	ECDHSS, err := DeriveECDHSharedSecret(senderECDHPrivate, receiverECDHPublic)
+	if err != nil {
+		return nil, err
+	}
+
 	kyberCT, kyberSS, err := EncapsulateKyber(receiverKyberPublic)
 	if err != nil {
 		return nil, err
 	}
 
 	inputKeyMaterial := append(kyberSS, ECDHSS...)
-	kdf := hkdf.New(sha256.New, inputKeyMaterial, nil, nil)
+	info := AppendWithLength(senderECDHPublic, receiverECDHPublic, receiverKyberPublic, kyberCT)
+	kdf := hkdf.New(sha256.New, inputKeyMaterial, nil, info)
 
 	sessionKey := make([]byte, 32)
 	if _, err := io.ReadFull(kdf, sessionKey); err != nil {
@@ -33,8 +38,11 @@ func HybridEncrypt(receiverECDHPublic, receiverKyberPublic, senderECDHPrivate []
 	}, nil
 }
 
-func HybridDecrypt(senderECDHPublic, receiverECDHPrivate, receiverKyberPrivate, kyberCT []byte) ([]byte, error) {
-	ECDHSS := DeriveECDHSharedSecret(receiverECDHPrivate, senderECDHPublic)
+func HybridDecrypt(senderECDHPublic, receiverECDHPrivate, receiverECDHPublic, receiverKyberPrivate, receiverKyberPublic, kyberCT []byte) ([]byte, error) {
+	ECDHSS, err := DeriveECDHSharedSecret(receiverECDHPrivate, senderECDHPublic)
+	if err != nil {
+		return nil, err
+	}
 
 	kyberSS, err := DecapsulateKyber(receiverKyberPrivate, kyberCT)
 	if err != nil {
@@ -42,7 +50,8 @@ func HybridDecrypt(senderECDHPublic, receiverECDHPrivate, receiverKyberPrivate, 
 	}
 
 	inputKeyMaterial := append(kyberSS, ECDHSS...)
-	kdf := hkdf.New(sha256.New, inputKeyMaterial, nil, nil)
+	info := AppendWithLength(senderECDHPublic, receiverECDHPublic, receiverKyberPublic, kyberCT)
+	kdf := hkdf.New(sha256.New, inputKeyMaterial, nil, info)
 
 	sessionKey := make([]byte, 32)
 	if _, err := io.ReadFull(kdf, sessionKey); err != nil {

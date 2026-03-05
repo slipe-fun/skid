@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 
 	"github.com/slipe-fun/skid/internal/crypto"
@@ -33,12 +34,12 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Printf("Encrypted key: %s\n", string(chatKey))
+	fmt.Printf("Encrypted key: %s\n", hex.EncodeToString(chatKey))
 
 	decrypted, err := protocol.Decrypt(encrypted, epoch, bobPrivateKeys, bobPublicKeys, bobSessionID, alicePublicKeys, aliceSessionID)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Printf("Decrypted key: %s\n", string(decrypted))
+	fmt.Printf("Decrypted key: %s\n", hex.EncodeToString(decrypted))
 }
