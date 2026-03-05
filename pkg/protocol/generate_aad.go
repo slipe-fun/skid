@@ -34,6 +34,7 @@ func GenerateAAD(
 	writeWithLen([]byte(senderID))
 	writeWithLen([]byte(receiverID))
 
+	writeWithLen(message.SenderEphemeralECDH)
 	writeWithLen(message.EncapsulatedKey)
 	writeWithLen(message.CekWrapSalt)
 

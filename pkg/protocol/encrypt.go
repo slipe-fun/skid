@@ -8,7 +8,9 @@ import (
 )
 
 func Encrypt(content []byte, epoch uint32, senderPrivateKeys *identity.UserPrivate, senderPublicKeys *identity.UserPublic, senderSessionID string, receiverPublicKeys *identity.UserPublic, receiverSessionID string) (*EncryptedMessage, error) {
-	resRecv, err := crypto.HybridEncrypt(receiverPublicKeys.ECDHKey, receiverPublicKeys.KyberKey, senderPrivateKeys.ECDHKey)
+	ephemeralPubKey, ephemeralPrivKey := crypto.GenerateECDHKeyPair()
+
+	resRecv, err := crypto.HybridEncrypt(receiverPublicKeys.ECDHKey, receiverPublicKeys.KyberKey, ephemeralPrivKey)
 	if err != nil {
 		return nil, err
 	}
@@ -29,10 +31,11 @@ func Encrypt(content []byte, epoch uint32, senderPrivateKeys *identity.UserPriva
 	}
 
 	msg := &EncryptedMessage{
-		Version:         CurrentVersion,
-		EncapsulatedKey: resRecv.CipherText,
-		CekWrapSalt:     wrapSaltReceiver,
-		Epoch:           epoch + 1,
+		Version:             CurrentVersion,
+		SenderEphemeralECDH: ephemeralPubKey,
+		EncapsulatedKey:     resRecv.CipherText,
+		CekWrapSalt:         wrapSaltReceiver,
+		Epoch:               epoch + 1,
 	}
 
 	aad := GenerateAAD(*msg, senderSessionID, receiverSessionID, senderPublicKeys, receiverPublicKeys)
