@@ -27,7 +27,7 @@ func GenerateAAD(
 	b.Write(receiverECDHKeyHash[:])
 
 	senderKyberKeyHash := sha256.Sum256(senderPub.KyberKey)
-	receiverKyberKeyHash := sha256.Sum256(receiverPub.ECDHKey)
+	receiverKyberKeyHash := sha256.Sum256(receiverPub.KyberKey)
 	b.Write(senderKyberKeyHash[:])
 	b.Write(receiverKyberKeyHash[:])
 
