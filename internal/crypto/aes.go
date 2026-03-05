@@ -13,8 +13,8 @@ func NewAes(key []byte) (*subtle.AESGCMSIV, error) {
 	return subtle.NewAESGCMSIV(key)
 }
 
-func DeriveAesKey(sessionKey, salt []byte, direction string) ([]byte, error) {
-	kdf := hkdf.New(sha256.New, sessionKey, salt, []byte(direction))
+func DeriveAesKey(sessionKey, salt []byte) ([]byte, error) {
+	kdf := hkdf.New(sha256.New, sessionKey, salt, []byte("aes-key-derivation"))
 	key := make([]byte, 32)
 	if _, err := io.ReadFull(kdf, key); err != nil {
 		return nil, err

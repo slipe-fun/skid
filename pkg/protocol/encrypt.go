@@ -34,7 +34,7 @@ func Encrypt(content []byte, epoch uint32, senderPrivateKeys *identity.UserPriva
 
 	kekSalt := append(wrapSaltReceiver, kdfContext...)
 
-	kekReceiver, err := crypto.DeriveAesKey(resRecv.SessionKey, kekSalt, "client-to-server")
+	kekReceiver, err := crypto.DeriveAesKey(resRecv.SessionKey, kekSalt)
 	if err != nil {
 		return nil, err
 	}

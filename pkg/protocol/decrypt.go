@@ -43,7 +43,7 @@ func Decrypt(encrypted *EncryptedMessage, epoch uint32, receiverPrivateKeys *ide
 
 		kekSalt := append(encrypted.CekWrapSalt, kdfContext...)
 
-		kekReceiver, err := crypto.DeriveAesKey(ssReceiver, kekSalt, "server-to-client")
+		kekReceiver, err := crypto.DeriveAesKey(ssReceiver, kekSalt)
 		if err != nil {
 			return nil, err
 		}
