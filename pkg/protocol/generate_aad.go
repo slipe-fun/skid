@@ -2,7 +2,6 @@ package protocol
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/binary"
 
 	"github.com/slipe-fun/skid/pkg/identity"
