@@ -12,7 +12,7 @@ import (
 func Decrypt(encrypted *EncryptedMessage, epoch uint32, receiverPrivateKeys *identity.UserPrivate, receiverPublicKeys *identity.UserPublic, receiverID string, senderPublicKeys *identity.UserPublic, senderID string) ([]byte, error) {
 	switch encrypted.Version {
 	case 1:
-		payload, err := encrypted.signingPayload(receiverPublicKeys, []byte(receiverID), []byte(senderID))
+		payload, err := encrypted.signingPayload(senderPublicKeys, receiverPublicKeys, []byte(receiverID), []byte(senderID))
 		if err != nil {
 			return nil, err
 		}

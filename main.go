@@ -28,7 +28,7 @@ func main() {
 
 	epoch := uint32(1)
 
-	encrypted, err := protocol.Encrypt(chatKey, epoch, alicePrivateKeys, aliceSessionID, bobPublicKeys, bobSessionID)
+	encrypted, err := protocol.Encrypt(chatKey, epoch, alicePrivateKeys, alicePublicKeys, aliceSessionID, bobPublicKeys, bobSessionID)
 	if err != nil {
 		panic(err)
 	}
