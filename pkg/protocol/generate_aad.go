@@ -16,28 +16,27 @@ func GenerateAAD(
 ) []byte {
 	var b bytes.Buffer
 
-	b.WriteString("SKID-PROTOCOL-V1")
-
+	b.WriteString("SKID-PROTOCOL-V1-AAD")
 	b.WriteByte(message.Version)
 	binary.Write(&b, binary.BigEndian, message.Epoch)
 
-	senderECDHKeyHash := sha256.Sum256(senderPub.ECDHKey)
-	receiverECDHKeyHash := sha256.Sum256(receiverPub.ECDHKey)
-	b.Write(senderECDHKeyHash[:])
-	b.Write(receiverECDHKeyHash[:])
+	writeWithLen := func(data []byte) {
+		binary.Write(&b, binary.BigEndian, uint32(len(data)))
+		b.Write(data)
+	}
 
-	senderKyberKeyHash := sha256.Sum256(senderPub.KyberKey)
-	receiverKyberKeyHash := sha256.Sum256(receiverPub.KyberKey)
-	b.Write(senderKyberKeyHash[:])
-	b.Write(receiverKyberKeyHash[:])
+	writeWithLen(senderPub.ECDHKey)
+	writeWithLen(receiverPub.ECDHKey)
+	writeWithLen(senderPub.KyberKey)
+	writeWithLen(receiverPub.KyberKey)
+	writeWithLen(senderPub.Ed25519Key)
+	writeWithLen(receiverPub.Ed25519Key)
 
-	b.WriteString(senderID)
-	b.WriteByte('|')
-	b.WriteString(receiverID)
+	writeWithLen([]byte(senderID))
+	writeWithLen([]byte(receiverID))
 
-	b.Write(message.EncapsulatedKey)
-
-	b.Write(message.CekWrapSalt)
+	writeWithLen(message.EncapsulatedKey)
+	writeWithLen(message.CekWrapSalt)
 
 	return b.Bytes()
 }
