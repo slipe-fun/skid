@@ -8,7 +8,7 @@ import (
 	"github.com/slipe-fun/skid/pkg/identity"
 )
 
-func (m *EncryptedMessage) signingPayload(senderPublicKeys *identity.UserPublic, receiverPublicKeys *identity.UserPublic, receiverID, senderID []byte) ([]byte, error) {
+func (m *EncryptedMessage) signingPayload(senderPublicKeys *identity.UserPublic, receiverPublicKeys *identity.UserPublic, receiverSessionID, senderSessionID []byte) ([]byte, error) {
 	var b bytes.Buffer
 
 	domainHash := sha256.Sum256([]byte("SKID-PROTOCOL-V1"))
@@ -21,8 +21,8 @@ func (m *EncryptedMessage) signingPayload(senderPublicKeys *identity.UserPublic,
 		b.Write(data)
 	}
 
-	writeWithLen(receiverID)
-	writeWithLen(senderID)
+	writeWithLen(receiverSessionID)
+	writeWithLen(senderSessionID)
 	writeWithLen(senderPublicKeys.ECDHKey)
 	writeWithLen(senderPublicKeys.KyberKey)
 	writeWithLen(receiverPublicKeys.ECDHKey)

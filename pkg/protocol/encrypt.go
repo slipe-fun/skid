@@ -7,7 +7,7 @@ import (
 	"github.com/slipe-fun/skid/pkg/identity"
 )
 
-func Encrypt(content []byte, epoch uint32, senderPrivateKeys *identity.UserPrivate, senderPublicKeys *identity.UserPublic, senderID string, receiverPublicKeys *identity.UserPublic, receiverID string) (*EncryptedMessage, error) {
+func Encrypt(content []byte, epoch uint32, senderPrivateKeys *identity.UserPrivate, senderPublicKeys *identity.UserPublic, senderSessionID string, receiverPublicKeys *identity.UserPublic, receiverSessionID string) (*EncryptedMessage, error) {
 	resRecv, err := crypto.HybridEncrypt(receiverPublicKeys.ECDHKey, receiverPublicKeys.KyberKey, senderPrivateKeys.ECDHKey)
 	if err != nil {
 		return nil, err
@@ -49,7 +49,7 @@ func Encrypt(content []byte, epoch uint32, senderPrivateKeys *identity.UserPriva
 		Epoch:           epoch + 1,
 	}
 
-	payload, err := msg.signingPayload(senderPublicKeys, receiverPublicKeys, []byte(receiverID), []byte(senderID))
+	payload, err := msg.signingPayload(senderPublicKeys, receiverPublicKeys, []byte(receiverSessionID), []byte(senderSessionID))
 	if err != nil {
 		return nil, err
 	}

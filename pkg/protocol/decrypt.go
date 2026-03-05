@@ -9,10 +9,10 @@ import (
 	"github.com/slipe-fun/skid/pkg/identity"
 )
 
-func Decrypt(encrypted *EncryptedMessage, epoch uint32, receiverPrivateKeys *identity.UserPrivate, receiverPublicKeys *identity.UserPublic, receiverID string, senderPublicKeys *identity.UserPublic, senderID string) ([]byte, error) {
+func Decrypt(encrypted *EncryptedMessage, epoch uint32, receiverPrivateKeys *identity.UserPrivate, receiverPublicKeys *identity.UserPublic, receiverSessionID string, senderPublicKeys *identity.UserPublic, senderSessionID string) ([]byte, error) {
 	switch encrypted.Version {
 	case 1:
-		payload, err := encrypted.signingPayload(senderPublicKeys, receiverPublicKeys, []byte(receiverID), []byte(senderID))
+		payload, err := encrypted.signingPayload(senderPublicKeys, receiverPublicKeys, []byte(receiverSessionID), []byte(senderSessionID))
 		if err != nil {
 			return nil, err
 		}
