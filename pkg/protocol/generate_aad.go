@@ -25,10 +25,11 @@ func GenerateAAD(
 	}
 
 	writeWithLen(senderPub.ECDHKey)
-	writeWithLen(receiverPub.ECDHKey)
 	writeWithLen(senderPub.KyberKey)
-	writeWithLen(receiverPub.KyberKey)
 	writeWithLen(senderPub.Ed25519Key)
+
+	writeWithLen(receiverPub.KyberKey)
+	writeWithLen(receiverPub.ECDHKey)
 	writeWithLen(receiverPub.Ed25519Key)
 
 	writeWithLen([]byte(senderID))

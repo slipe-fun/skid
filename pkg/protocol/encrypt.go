@@ -25,7 +25,13 @@ func Encrypt(content []byte, epoch uint32, senderPrivateKeys *identity.UserPriva
 		return nil, err
 	}
 
-	kekReceiver, err := crypto.DeriveAesKey(resRecv.SessionKey, wrapSaltReceiver)
+	kdfContext := append([]byte(senderSessionID), []byte(receiverSessionID)...)
+	kdfContext = append(kdfContext, senderPublicKeys.ECDHKey...)
+	kdfContext = append(kdfContext, receiverPublicKeys.ECDHKey...)
+
+	kekSalt := append(wrapSaltReceiver, kdfContext...)
+
+	kekReceiver, err := crypto.DeriveAesKey(resRecv.SessionKey, kekSalt)
 	if err != nil {
 		return nil, err
 	}
