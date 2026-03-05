@@ -40,7 +40,7 @@ func Encrypt(content []byte, epoch uint32, senderPrivateKeys *identity.UserPriva
 
 	aad := GenerateAAD(*msg, senderSessionID, receiverSessionID, senderPublicKeys, receiverPublicKeys)
 
-	aadKek := append(aad, []byte("-KEK")...)
+	aadKek := append(aad[:len(aad):len(aad)], []byte("-KEK")...)
 	wrappedCekReceiver, wrapIvReceiver, err := crypto.Encrypt(kekReceiver, cekRaw, aadKek)
 	if err != nil {
 		return nil, err
@@ -49,7 +49,7 @@ func Encrypt(content []byte, epoch uint32, senderPrivateKeys *identity.UserPriva
 	msg.CekWrap = wrappedCekReceiver
 	msg.CekWrapIV = wrapIvReceiver
 
-	aadCek := append(aad, []byte("-CEK")...)
+	aadCek := append(aad[:len(aad):len(aad)], []byte("-CEK")...)
 	ciphertext, iv, err := crypto.Encrypt(cekRaw, content, aadCek)
 	if err != nil {
 		return nil, err
