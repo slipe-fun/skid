@@ -40,12 +40,14 @@ func Decrypt(encrypted *EncryptedMessage, epoch uint32, receiverPrivateKeys *ide
 			return nil, err
 		}
 
-		cek, err := crypto.Decrypt(kekReceiver, encrypted.CekWrapIV, encrypted.CekWrap, encrypted.EncapsulatedKey)
+		aad := GenerateAAD(*encrypted, senderSessionID, receiverSessionID, senderPublicKeys, receiverPublicKeys)
+
+		cek, err := crypto.Decrypt(kekReceiver, encrypted.CekWrap, encrypted.CekWrapIV, aad)
 		if err != nil {
 			return nil, err
 		}
 
-		plaintext, err := crypto.Decrypt(cek, encrypted.IV, encrypted.Ciphertext, encrypted.EncapsulatedKey)
+		plaintext, err := crypto.Decrypt(cek, encrypted.Ciphertext, encrypted.IV, aad)
 		if err != nil {
 			return nil, err
 		}

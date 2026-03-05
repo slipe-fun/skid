@@ -28,26 +28,30 @@ func Encrypt(content []byte, epoch uint32, senderPrivateKeys *identity.UserPriva
 		return nil, err
 	}
 
-	wrappedCekReceiver, wrapIvReceiver, err := crypto.Encrypt(kekReceiver, cekRaw, resRecv.CipherText)
-	if err != nil {
-		return nil, err
-	}
-
-	ciphertext, iv, err := crypto.Encrypt(cekRaw, content, resRecv.CipherText)
-	if err != nil {
-		return nil, err
-	}
-
 	msg := &EncryptedMessage{
 		Version:         CurrentVersion,
-		Ciphertext:      ciphertext,
-		IV:              iv,
 		EncapsulatedKey: resRecv.CipherText,
-		CekWrap:         wrappedCekReceiver,
-		CekWrapIV:       wrapIvReceiver,
 		CekWrapSalt:     wrapSaltReceiver,
 		Epoch:           epoch + 1,
 	}
+
+	aad := GenerateAAD(*msg, senderSessionID, receiverSessionID, senderPublicKeys, receiverPublicKeys)
+
+	wrappedCekReceiver, wrapIvReceiver, err := crypto.Encrypt(kekReceiver, cekRaw, aad)
+	if err != nil {
+		return nil, err
+	}
+
+	msg.CekWrap = wrappedCekReceiver
+	msg.CekWrapIV = wrapIvReceiver
+
+	ciphertext, iv, err := crypto.Encrypt(cekRaw, content, aad)
+	if err != nil {
+		return nil, err
+	}
+
+	msg.Ciphertext = ciphertext
+	msg.IV = iv
 
 	payload, err := msg.signingPayload(senderPublicKeys, receiverPublicKeys, []byte(receiverSessionID), []byte(senderSessionID))
 	if err != nil {

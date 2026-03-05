@@ -32,7 +32,7 @@ func Encrypt(key, plaintext, aad []byte) ([]byte, []byte, error) {
 		return nil, nil, err
 	}
 
-	return fullResult[:12], fullResult[12:], nil
+	return fullResult[12:], fullResult[:12], nil
 }
 
 func Decrypt(key, ciphertext, iv, aad []byte) ([]byte, error) {
