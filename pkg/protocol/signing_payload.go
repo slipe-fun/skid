@@ -27,6 +27,8 @@ func (m *EncryptedMessage) signingPayload(senderPublicKeys *identity.UserPublic,
 	writeWithLen(senderPublicKeys.KyberKey)
 	writeWithLen(receiverPublicKeys.ECDHKey)
 	writeWithLen(receiverPublicKeys.KyberKey)
+	writeWithLen(receiverPublicKeys.Ed25519Key)
+	writeWithLen(receiverPublicKeys.Ed25519Key)
 	writeWithLen(m.IV)
 	writeWithLen(m.CekWrap)
 	writeWithLen(m.EncapsulatedKey)
