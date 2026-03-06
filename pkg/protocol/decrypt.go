@@ -12,10 +12,7 @@ import (
 func Decrypt(encrypted *EncryptedMessage, epoch uint32, receiverPrivateKeys *identity.UserPrivate, receiverPublicKeys *identity.UserPublic, receiverSessionID string, senderPublicKeys *identity.UserPublic, senderSessionID string) ([]byte, error) {
 	switch encrypted.Version {
 	case 1:
-		payload, err := encrypted.signingPayload(senderPublicKeys, receiverPublicKeys, []byte(senderSessionID), []byte(receiverSessionID))
-		if err != nil {
-			return nil, err
-		}
+		payload := encrypted.signingPayload(senderPublicKeys, receiverPublicKeys, []byte(senderSessionID), []byte(receiverSessionID))
 
 		if encrypted.Epoch <= epoch {
 			return nil, errors.New("invalid sequence")
