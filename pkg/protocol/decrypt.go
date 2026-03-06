@@ -37,11 +37,7 @@ func Decrypt(encrypted *EncryptedMessage, epoch uint32, receiverPrivateKeys *ide
 			return nil, err
 		}
 
-		kdfContext := append([]byte(senderSessionID), []byte(receiverSessionID)...)
-		kdfContext = append(kdfContext, senderPublicKeys.ECDHKey...)
-		kdfContext = append(kdfContext, receiverPublicKeys.ECDHKey...)
-
-		kekSalt := append(encrypted.CekWrapSalt, kdfContext...)
+		kekSalt := GenerateKDFContext(senderSessionID, receiverSessionID, senderPublicKeys, receiverPublicKeys, encrypted.CekWrapSalt)
 
 		kekReceiver, err := crypto.DeriveAesKey(ssReceiver, kekSalt)
 		if err != nil {

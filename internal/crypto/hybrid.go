@@ -23,9 +23,11 @@ func HybridEncrypt(receiverECDHPublic, receiverKyberPublic, senderECDHPrivate, s
 		return nil, err
 	}
 
-	inputKeyMaterial := append(kyberSS, ECDHSS...)
+	ikm := make([]byte, 0, len(kyberSS)+len(ECDHSS))
+	ikm = append(ikm, kyberSS...)
+	ikm = append(ikm, ECDHSS...)
 	info := AppendWithLength(senderECDHPublic, receiverECDHPublic, receiverKyberPublic, kyberCT)
-	kdf := hkdf.New(sha256.New, inputKeyMaterial, nil, info)
+	kdf := hkdf.New(sha256.New, ikm, nil, info)
 
 	sessionKey := make([]byte, 32)
 	if _, err := io.ReadFull(kdf, sessionKey); err != nil {
@@ -49,9 +51,11 @@ func HybridDecrypt(senderECDHPublic, receiverECDHPrivate, receiverECDHPublic, re
 		return nil, err
 	}
 
-	inputKeyMaterial := append(kyberSS, ECDHSS...)
+	ikm := make([]byte, 0, len(kyberSS)+len(ECDHSS))
+	ikm = append(ikm, kyberSS...)
+	ikm = append(ikm, ECDHSS...)
 	info := AppendWithLength(senderECDHPublic, receiverECDHPublic, receiverKyberPublic, kyberCT)
-	kdf := hkdf.New(sha256.New, inputKeyMaterial, nil, info)
+	kdf := hkdf.New(sha256.New, ikm, nil, info)
 
 	sessionKey := make([]byte, 32)
 	if _, err := io.ReadFull(kdf, sessionKey); err != nil {
