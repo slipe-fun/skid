@@ -12,8 +12,13 @@ type HybridResult struct {
 	CipherText []byte
 }
 
-func HybridEncrypt(receiverECDHPublic, receiverKyberPublic, senderECDHPrivate, senderECDHPublic []byte) (*HybridResult, error) {
-	ECDHSS, err := DeriveECDHSharedSecret(senderECDHPrivate, receiverECDHPublic)
+func HybridEncrypt(receiverECDHPublic, receiverKyberPublic, senderECDHEphemeralPrivate, senderECDHEphemeralPublic, senderECDHStaticPrivate, senderECDHStaticPublic []byte) (*HybridResult, error) {
+	ecdhEphemeralSS, err := DeriveECDHSharedSecret(senderECDHEphemeralPrivate, receiverECDHPublic)
+	if err != nil {
+		return nil, err
+	}
+
+	ecdhStaticSS, err := DeriveECDHSharedSecret(senderECDHStaticPrivate, receiverECDHPublic)
 	if err != nil {
 		return nil, err
 	}
@@ -23,10 +28,12 @@ func HybridEncrypt(receiverECDHPublic, receiverKyberPublic, senderECDHPrivate, s
 		return nil, err
 	}
 
-	ikm := make([]byte, 0, len(kyberSS)+len(ECDHSS))
+	ikm := make([]byte, 0, len(kyberSS)+len(ecdhEphemeralSS)+len(ecdhStaticSS))
 	ikm = append(ikm, kyberSS...)
-	ikm = append(ikm, ECDHSS...)
-	info := AppendWithLength(senderECDHPublic, receiverECDHPublic, receiverKyberPublic, kyberCT)
+	ikm = append(ikm, ecdhEphemeralSS...)
+	ikm = append(ikm, ecdhStaticSS...)
+
+	info := AppendWithLength(senderECDHEphemeralPublic, senderECDHStaticPublic, receiverECDHPublic, receiverKyberPublic, kyberCT)
 	kdf := hkdf.New(sha256.New, ikm, nil, info)
 
 	sessionKey := make([]byte, 32)
@@ -40,8 +47,13 @@ func HybridEncrypt(receiverECDHPublic, receiverKyberPublic, senderECDHPrivate, s
 	}, nil
 }
 
-func HybridDecrypt(senderECDHPublic, receiverECDHPrivate, receiverECDHPublic, receiverKyberPrivate, receiverKyberPublic, kyberCT []byte) ([]byte, error) {
-	ECDHSS, err := DeriveECDHSharedSecret(receiverECDHPrivate, senderECDHPublic)
+func HybridDecrypt(senderECDHEphemeralPublic, senderECDHStaticPublic, receiverECDHPrivate, receiverECDHPublic, receiverKyberPrivate, receiverKyberPublic, kyberCT []byte) ([]byte, error) {
+	ecdhEphemeralSS, err := DeriveECDHSharedSecret(receiverECDHPrivate, senderECDHEphemeralPublic)
+	if err != nil {
+		return nil, err
+	}
+
+	ecdhStaticSS, err := DeriveECDHSharedSecret(receiverECDHPrivate, senderECDHStaticPublic)
 	if err != nil {
 		return nil, err
 	}
@@ -51,10 +63,12 @@ func HybridDecrypt(senderECDHPublic, receiverECDHPrivate, receiverECDHPublic, re
 		return nil, err
 	}
 
-	ikm := make([]byte, 0, len(kyberSS)+len(ECDHSS))
+	ikm := make([]byte, 0, len(kyberSS)+len(ecdhEphemeralSS)+len(ecdhStaticSS))
 	ikm = append(ikm, kyberSS...)
-	ikm = append(ikm, ECDHSS...)
-	info := AppendWithLength(senderECDHPublic, receiverECDHPublic, receiverKyberPublic, kyberCT)
+	ikm = append(ikm, ecdhEphemeralSS...)
+	ikm = append(ikm, ecdhStaticSS...)
+
+	info := AppendWithLength(senderECDHEphemeralPublic, senderECDHStaticPublic, receiverECDHPublic, receiverKyberPublic, kyberCT)
 	kdf := hkdf.New(sha256.New, ikm, nil, info)
 
 	sessionKey := make([]byte, 32)

@@ -13,7 +13,7 @@ func Encrypt(content []byte, epoch uint32, senderPrivateKeys *identity.UserPriva
 		return nil, err
 	}
 
-	resRecv, err := crypto.HybridEncrypt(receiverPublicKeys.ECDHKey, receiverPublicKeys.KyberKey, ephemeralPrivKey, ephemeralPubKey)
+	resRecv, err := crypto.HybridEncrypt(receiverPublicKeys.ECDHKey, receiverPublicKeys.KyberKey, ephemeralPrivKey, ephemeralPubKey, senderPrivateKeys.ECDHKey, senderPublicKeys.ECDHKey)
 	if err != nil {
 		return nil, err
 	}

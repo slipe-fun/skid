@@ -24,6 +24,7 @@ func Decrypt(encrypted *EncryptedMessage, epoch uint32, receiverPrivateKeys *ide
 
 		ssReceiver, err := crypto.HybridDecrypt(
 			encrypted.SenderEphemeralECDH,
+			senderPublicKeys.ECDHKey,
 			receiverPrivateKeys.ECDHKey,
 			receiverPublicKeys.ECDHKey,
 			receiverPrivateKeys.KyberKey,
