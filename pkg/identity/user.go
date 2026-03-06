@@ -5,15 +5,13 @@ import (
 )
 
 type UserPrivate struct {
-	KyberKey   []byte
-	ECDHKey    []byte
-	Ed25519Key []byte
+	KyberKey []byte
+	ECDHKey  []byte
 }
 
 type UserPublic struct {
-	KyberKey   []byte `json:"kyber_key"`
-	ECDHKey    []byte `json:"ecdh_key"`
-	Ed25519Key []byte `json:"ed_key"`
+	KyberKey []byte `json:"kyber_key"`
+	ECDHKey  []byte `json:"ecdh_key"`
 }
 
 func NewUser() (*UserPrivate, *UserPublic, error) {
@@ -27,21 +25,14 @@ func NewUser() (*UserPrivate, *UserPublic, error) {
 		return nil, nil, err
 	}
 
-	ed25519PublicKey, ed25519SecretKey, err := crypto.GenerateEd25519KeyPair()
-	if err != nil {
-		return nil, nil, err
-	}
-
 	public := &UserPublic{
-		KyberKey:   kyberPublicKey,
-		ECDHKey:    ecdhPublicKey,
-		Ed25519Key: ed25519PublicKey,
+		KyberKey: kyberPublicKey,
+		ECDHKey:  ecdhPublicKey,
 	}
 
 	private := &UserPrivate{
-		KyberKey:   kyberSecretKey,
-		ECDHKey:    ecdhSecretKey,
-		Ed25519Key: ed25519SecretKey,
+		KyberKey: kyberSecretKey,
+		ECDHKey:  ecdhSecretKey,
 	}
 
 	return private, public, nil

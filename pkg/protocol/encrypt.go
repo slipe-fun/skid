@@ -1,8 +1,6 @@
 package protocol
 
 import (
-	"crypto/ed25519"
-
 	"github.com/slipe-fun/skid/internal/crypto"
 	"github.com/slipe-fun/skid/pkg/identity"
 )
@@ -62,10 +60,6 @@ func Encrypt(content []byte, epoch uint32, senderPrivateKeys *identity.UserPriva
 
 	msg.Ciphertext = ciphertext
 	msg.IV = iv
-
-	payload := msg.signingPayload(senderPublicKeys, receiverPublicKeys, []byte(senderSessionID), []byte(receiverSessionID))
-
-	msg.Signature = ed25519.Sign(senderPrivateKeys.Ed25519Key, payload)
 
 	return msg, nil
 }
