@@ -2,14 +2,17 @@ package protocol
 
 const CurrentVersion uint8 = 1
 
-type EncryptedMessage struct {
-	Version             uint8  `json:"v"`
-	Epoch               uint32 `json:"epoch"`
-	SenderEphemeralECDH []byte `json:"sender_ephemeral_ecdh"`
-	Ciphertext          []byte `json:"ciphertext"`
-	IV                  []byte `json:"iv"`
-	EncapsulatedKey     []byte `json:"encapsulated_key"`
-	CekWrap             []byte `json:"cek_wrap"`
-	CekWrapIV           []byte `json:"cek_wrap_iv"`
-	CekWrapSalt         []byte `json:"cek_wrap_salt"`
+type KeyExchangeMessage struct {
+	Version uint8 `json:"v"`
+
+	EphemeralX448   []byte `json:"e_x448,omitempty"`
+	KyberCiphertext []byte `json:"k_ct,omitempty"`
+	OneTimePreKeyID uint32 `json:"otpk_id,omitempty"`
+
+	RatchetPub []byte `json:"r_pub"`
+	Index      uint32 `json:"idx"`
+	PrevIdx    uint32 `json:"p_idx"`
+
+	Ciphertext []byte `json:"ct"`
+	IV         []byte `json:"iv"`
 }

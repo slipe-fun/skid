@@ -5,41 +5,63 @@ import (
 	"fmt"
 
 	"github.com/slipe-fun/skid/internal/crypto"
+	"github.com/slipe-fun/skid/pkg/handshake"
 	"github.com/slipe-fun/skid/pkg/identity"
 	"github.com/slipe-fun/skid/pkg/protocol"
 )
 
 func main() {
-	aliceSessionID := "5"
-	alicePrivateKeys, alicePublicKeys, err := identity.NewUser()
+	//bob
+
+	bobPublicPreKeyBundle, bobPrivatePreKeyBundle, err := identity.NewPreKeyBundle()
 	if err != nil {
 		panic(err)
 	}
 
-	bobSessionID := "18"
-	bobPrivateKeys, bobPublicKeys, err := identity.NewUser()
+	//alice
+
+	aliceIK_Pub, aliceIK_Priv, err := crypto.GenerateECDHKeyPair()
 	if err != nil {
 		panic(err)
 	}
+
+	aliceEK_Pub, aliceEK_Priv, err := crypto.GenerateECDHKeyPair()
+	if err != nil {
+		panic(err)
+	}
+
+	aliceSharedKey, aliceInitialMessage, err := handshake.Initiate(aliceIK_Pub, aliceIK_Priv, aliceEK_Pub, aliceEK_Priv, bobPublicPreKeyBundle)
+	if err != nil {
+		panic(err)
+	}
+
+	aliceDR := protocol.NewSession(aliceSharedKey, bobPublicPreKeyBundle.IK_Pub, true)
 
 	chatKey, err := crypto.RandomBytes(32)
 	if err != nil {
 		panic(err)
 	}
 
-	epoch := uint32(1)
-
-	encrypted, err := protocol.Encrypt(chatKey, epoch, alicePrivateKeys, alicePublicKeys, aliceSessionID, bobPublicKeys, bobSessionID)
+	cipher, iv, header, err := aliceDR.Encrypt(chatKey, aliceIK_Pub[:], bobPublicPreKeyBundle.IK_Pub[:])
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Printf("Encrypted key: %s\n", hex.EncodeToString(chatKey))
+	fmt.Printf("Encrypted key: %s \n", hex.EncodeToString(chatKey))
 
-	decrypted, err := protocol.Decrypt(encrypted, epoch, bobPrivateKeys, bobPublicKeys, bobSessionID, alicePublicKeys, aliceSessionID)
+	//bob
+
+	bobSharedKey, err := handshake.Respond(bobPrivatePreKeyBundle, aliceInitialMessage)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Printf("Decrypted key: %s\n", hex.EncodeToString(decrypted))
+	bobDR := protocol.NewSession(bobSharedKey, aliceIK_Pub, false)
+
+	plain, err := bobDR.Decrypt(cipher, iv, header, aliceIK_Pub[:], bobPublicPreKeyBundle.IK_Pub[:])
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("Decrypted key: %s \n", hex.EncodeToString(plain))
 }

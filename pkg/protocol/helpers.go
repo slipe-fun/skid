@@ -4,60 +4,34 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
-
-	"github.com/slipe-fun/skid/pkg/identity"
 )
 
-func writeWithLen(b *bytes.Buffer, data []byte) {
-	_ = binary.Write(b, binary.BigEndian, uint32(len(data)))
-	b.Write(data)
-}
-
-func GenerateKDFContext(senderSessionID, receiverSessionID string, senderPublicKeys, receiverPublicKeys *identity.UserPublic, wrapSaltReceiver []byte) []byte {
-	var b bytes.Buffer
-
-	domainHash := sha256.Sum256([]byte("SKID-PROTOCOL-V1-KDF"))
-	b.Write(domainHash[:])
-
-	writeWithLen(&b, []byte(senderSessionID))
-	writeWithLen(&b, []byte(receiverSessionID))
-
-	writeWithLen(&b, senderPublicKeys.ECDHKey)
-	writeWithLen(&b, senderPublicKeys.KyberKey)
-
-	writeWithLen(&b, receiverPublicKeys.ECDHKey)
-	writeWithLen(&b, receiverPublicKeys.KyberKey)
-
-	writeWithLen(&b, wrapSaltReceiver)
-
-	return b.Bytes()
-}
+var aadDomainPrefix = sha256.Sum256([]byte("SKID-PROTOCOL-V1-AAD"))
 
 func GenerateAAD(
-	message EncryptedMessage,
-	senderID, receiverID string,
-	senderPub *identity.UserPublic,
-	receiverPub *identity.UserPublic,
+	header *Header,
+	aliceIK, bobIK []byte,
 ) []byte {
-	var b bytes.Buffer
+	firstIK, secondIK := aliceIK, bobIK
+	if bytes.Compare(aliceIK, bobIK) > 0 {
+		firstIK, secondIK = bobIK, aliceIK
+	}
 
-	domainHash := sha256.Sum256([]byte("SKID-PROTOCOL-V1-AAD"))
-	b.Write(domainHash[:])
-	b.WriteByte(message.Version)
-	binary.Write(&b, binary.BigEndian, message.Epoch)
+	aad := make([]byte, 0, 208)
 
-	writeWithLen(&b, senderPub.ECDHKey)
-	writeWithLen(&b, senderPub.KyberKey)
+	aad = append(aad, aadDomainPrefix[:]...)
 
-	writeWithLen(&b, receiverPub.ECDHKey)
-	writeWithLen(&b, receiverPub.KyberKey)
+	aad = append(aad, firstIK...)
+	aad = append(aad, secondIK...)
 
-	writeWithLen(&b, []byte(senderID))
-	writeWithLen(&b, []byte(receiverID))
+	aad = append(aad, header.RatchetPub[:]...)
 
-	writeWithLen(&b, message.SenderEphemeralECDH)
-	writeWithLen(&b, message.EncapsulatedKey)
-	writeWithLen(&b, message.CekWrapSalt)
+	buf := make([]byte, 4)
+	binary.BigEndian.PutUint32(buf, header.Index)
+	aad = append(aad, buf...)
 
-	return b.Bytes()
+	binary.BigEndian.PutUint32(buf, header.PrevIdx)
+	aad = append(aad, buf...)
+
+	return aad
 }
