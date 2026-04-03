@@ -24,7 +24,7 @@ type Session struct {
 	skippedKeys map[string][]byte
 }
 
-func NewSessionInitiator(sharedKey []byte, bobRatchetPub x448.Key) *Session {
+func NewSessionInitiator(sharedKey []byte, bobRatchetPub x448.Key) (*Session, error) {
 	s := &Session{
 		rootKey:     sharedKey,
 		remotePub:   bobRatchetPub,
@@ -35,10 +35,12 @@ func NewSessionInitiator(sharedKey []byte, bobRatchetPub x448.Key) *Session {
 	x448.KeyGen(&s.localPub, &s.localDH)
 
 	var dhOut x448.Key
-	x448.Shared(&dhOut, &s.localDH, &s.remotePub)
+	if !x448.Shared(&dhOut, &s.localDH, &s.remotePub) {
+		return nil, fmt.Errorf("ratchet initial DH failed: low-order point")
+	}
 	s.rootKey, s.sendCK = kdfRK(s.rootKey, dhOut[:])
 
-	return s
+	return s, nil
 }
 
 func NewSessionResponder(sharedKey []byte, bobRatchetPriv x448.Key) *Session {
@@ -81,7 +83,9 @@ func (s *Session) Decrypt(ciphertext, iv []byte, header *Header, aliceIK, bobIK 
 	}
 
 	if header.RatchetPub != s.remotePub {
-		s.performRatchetStep(header)
+		if err := s.performRatchetStep(header); err != nil {
+			return nil, err
+		}
 	}
 
 	if header.Index > s.recvIdx {
@@ -95,22 +99,28 @@ func (s *Session) Decrypt(ciphertext, iv []byte, header *Header, aliceIK, bobIK 
 	return crypto.Decrypt(msgKey, ciphertext, iv, aad)
 }
 
-func (s *Session) performRatchetStep(header *Header) {
+func (s *Session) performRatchetStep(header *Header) error {
 	s.prevMsg = s.sendIdx
 	s.sendIdx = 0
 	s.recvIdx = 0
 	s.remotePub = header.RatchetPub
 
 	var dhOut1 x448.Key
-	x448.Shared(&dhOut1, &s.localDH, &s.remotePub)
+	if !x448.Shared(&dhOut1, &s.localDH, &s.remotePub) {
+		return fmt.Errorf("ratchet step DH1 failed: low-order point")
+	}
 	s.rootKey, s.recvCK = kdfRK(s.rootKey, dhOut1[:])
 
 	rand.Read(s.localDH[:])
 	x448.KeyGen(&s.localPub, &s.localDH)
 
 	var dhOut2 x448.Key
-	x448.Shared(&dhOut2, &s.localDH, &s.remotePub)
+	if !x448.Shared(&dhOut2, &s.localDH, &s.remotePub) {
+		return fmt.Errorf("ratchet step DH2 failed: low-order point")
+	}
 	s.rootKey, s.sendCK = kdfRK(s.rootKey, dhOut2[:])
+
+	return nil
 }
 
 func (s *Session) skipMessages(untilIndex uint32) {

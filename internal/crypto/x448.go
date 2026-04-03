@@ -16,7 +16,7 @@ func GenerateECDHKeyPair() (x448.Key, x448.Key, error) {
 	}
 	x448.KeyGen(&pk, &sk)
 
-	return x448.Key(pk[:]), x448.Key(sk[:]), nil
+	return pk, sk, nil
 }
 
 func X3DH_Initiator(
@@ -25,14 +25,21 @@ func X3DH_Initiator(
 	IKB_Pub x448.Key,
 	SPKB_Pub x448.Key,
 	OPKB_Pub x448.Key,
-) (dh1, dh2, dh3, dh4 x448.Key) {
+) (dh1, dh2, dh3, dh4 x448.Key, err error) {
+	if !x448.Shared(&dh1, &IKA_Priv, &SPKB_Pub) {
+		return dh1, dh2, dh3, dh4, errors.New("X3DH DH1 failed: low-order point")
+	}
+	if !x448.Shared(&dh2, &EKA_Priv, &IKB_Pub) {
+		return dh1, dh2, dh3, dh4, errors.New("X3DH DH2 failed: low-order point")
+	}
+	if !x448.Shared(&dh3, &EKA_Priv, &SPKB_Pub) {
+		return dh1, dh2, dh3, dh4, errors.New("X3DH DH3 failed: low-order point")
+	}
+	if !x448.Shared(&dh4, &EKA_Priv, &OPKB_Pub) {
+		return dh1, dh2, dh3, dh4, errors.New("X3DH DH4 failed: low-order point")
+	}
 
-	x448.Shared(&dh1, &IKA_Priv, &SPKB_Pub)
-	x448.Shared(&dh2, &EKA_Priv, &IKB_Pub)
-	x448.Shared(&dh3, &EKA_Priv, &SPKB_Pub)
-	x448.Shared(&dh4, &EKA_Priv, &OPKB_Pub)
-
-	return
+	return dh1, dh2, dh3, dh4, nil
 }
 
 func X3DH_Responder(
@@ -41,12 +48,19 @@ func X3DH_Responder(
 	OPKB_Priv x448.Key,
 	IKA_Pub x448.Key,
 	EKA_Pub x448.Key,
-) (dh1, dh2, dh3, dh4 x448.Key) {
-
-	x448.Shared(&dh1, &SPKB_Priv, &IKA_Pub)
-	x448.Shared(&dh2, &IKB_Priv, &EKA_Pub)
-	x448.Shared(&dh3, &SPKB_Priv, &EKA_Pub)
-	x448.Shared(&dh4, &OPKB_Priv, &EKA_Pub)
+) (dh1, dh2, dh3, dh4 x448.Key, err error) {
+	if !x448.Shared(&dh1, &SPKB_Priv, &IKA_Pub) {
+		return dh1, dh2, dh3, dh4, errors.New("X3DH DH1 failed: low-order point")
+	}
+	if !x448.Shared(&dh2, &IKB_Priv, &EKA_Pub) {
+		return dh1, dh2, dh3, dh4, errors.New("X3DH DH2 failed: low-order point")
+	}
+	if !x448.Shared(&dh3, &SPKB_Priv, &EKA_Pub) {
+		return dh1, dh2, dh3, dh4, errors.New("X3DH DH3 failed: low-order point")
+	}
+	if !x448.Shared(&dh4, &OPKB_Priv, &EKA_Pub) {
+		return dh1, dh2, dh3, dh4, errors.New("X3DH DH4 failed: low-order point")
+	}
 
 	return
 }
