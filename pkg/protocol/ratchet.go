@@ -62,6 +62,9 @@ func NewSessionResponder(sharedKey []byte, bobRatchetPriv x448.Key) *Session {
 }
 
 func (s *Session) Encrypt(plaintext, aliceIK, bobIK []byte) (ciphertext, iv []byte, header *Header, err error) {
+	if len(s.sendCK) == 0 {
+		return nil, nil, nil, errors.New("cannot encrypt: session is not fully initialized")
+	}
 	newCK, msgKey := kdfCK(s.sendCK)
 	s.sendCK = newCK
 
