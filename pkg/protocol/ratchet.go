@@ -2,10 +2,16 @@ package protocol
 
 import (
 	"crypto/rand"
+	"errors"
 	"fmt"
 
 	"github.com/cloudflare/circl/dh/x448"
 	"github.com/slipe-fun/skid/internal/crypto"
+)
+
+var (
+	maxSkipMessagesLimit  = 2000
+	maxSkippedKeysMapSize = 10000
 )
 
 type Session struct {
@@ -89,7 +95,9 @@ func (s *Session) Decrypt(ciphertext, iv []byte, header *Header, aliceIK, bobIK 
 	}
 
 	if header.Index > s.recvIdx {
-		s.skipMessages(header.Index)
+		if err := s.skipMessages(header.Index); err != nil {
+			return nil, err
+		}
 	}
 
 	newCK, msgKey := kdfCK(s.recvCK)
@@ -123,7 +131,20 @@ func (s *Session) performRatchetStep(header *Header) error {
 	return nil
 }
 
-func (s *Session) skipMessages(untilIndex uint32) {
+func (s *Session) skipMessages(untilIndex uint32) error {
+	if untilIndex <= s.recvIdx {
+		return nil
+	}
+
+	count := untilIndex - s.recvIdx
+	if count > uint32(maxSkipMessagesLimit) {
+		return errors.New("too many messages to skip")
+	}
+
+	if len(s.skippedKeys)+int(count) > maxSkippedKeysMapSize {
+		return errors.New("skipped keys map capacity exceeded")
+	}
+
 	for s.recvIdx < untilIndex {
 		newCK, msgKey := kdfCK(s.recvCK)
 		s.recvCK = newCK
@@ -131,6 +152,8 @@ func (s *Session) skipMessages(untilIndex uint32) {
 		s.skippedKeys[keyID] = msgKey
 		s.recvIdx++
 	}
+
+	return nil
 }
 
 type Header struct {
