@@ -24,21 +24,32 @@ type Session struct {
 	skippedKeys map[string][]byte
 }
 
-func NewSession(sharedKey []byte, remoteIdentityPub x448.Key, isInitiator bool) *Session {
+func NewSessionInitiator(sharedKey []byte, bobRatchetPub x448.Key) *Session {
 	s := &Session{
 		rootKey:     sharedKey,
-		remotePub:   remoteIdentityPub,
+		remotePub:   bobRatchetPub,
 		skippedKeys: make(map[string][]byte),
 	}
 
 	rand.Read(s.localDH[:])
 	x448.KeyGen(&s.localPub, &s.localDH)
 
-	if isInitiator {
-		var dhOut x448.Key
-		x448.Shared(&dhOut, &s.localDH, &s.remotePub)
-		s.rootKey, s.sendCK = kdfRK(s.rootKey, dhOut[:])
+	var dhOut x448.Key
+	x448.Shared(&dhOut, &s.localDH, &s.remotePub)
+	s.rootKey, s.sendCK = kdfRK(s.rootKey, dhOut[:])
+
+	return s
+}
+
+func NewSessionResponder(sharedKey []byte, bobRatchetPriv x448.Key) *Session {
+	s := &Session{
+		rootKey:     sharedKey,
+		localDH:     bobRatchetPriv,
+		skippedKeys: make(map[string][]byte),
 	}
+
+	x448.KeyGen(&s.localPub, &s.localDH)
+
 	return s
 }
 

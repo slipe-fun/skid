@@ -6,15 +6,26 @@ import (
 )
 
 var (
-	kdfSaltRK = []byte("DoubleRatchet-RootKey-Salt")
+	kdfInfoRK = []byte("DoubleRatchet-RootKey-Salt")
 )
 
 func kdfRK(rk, dhSecret []byte) (newRK, newCK []byte) {
-	mac := hmac.New(sha256.New, rk)
-	mac.Write(dhSecret)
-	mac.Write(kdfSaltRK)
-	res := mac.Sum(nil)
-	return res[:32], res[32:]
+	macExtract := hmac.New(sha256.New, rk)
+	macExtract.Write(dhSecret)
+	prk := macExtract.Sum(nil)
+
+	macT1 := hmac.New(sha256.New, prk)
+	macT1.Write(kdfInfoRK)
+	macT1.Write([]byte{0x01})
+	newRK = macT1.Sum(nil)
+
+	macT2 := hmac.New(sha256.New, prk)
+	macT2.Write(newRK)
+	macT2.Write(kdfInfoRK)
+	macT2.Write([]byte{0x02})
+	newCK = macT2.Sum(nil)
+
+	return newRK, newCK
 }
 
 func kdfCK(ck []byte) (newCK, msgKey []byte) {
