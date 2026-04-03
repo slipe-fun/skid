@@ -30,6 +30,19 @@ type Session struct {
 	skippedKeys map[string][]byte
 }
 
+type SessionState struct {
+	RootKey     []byte
+	SendCK      []byte
+	RecvCK      []byte
+	LocalDH     []byte
+	LocalPub    []byte
+	RemotePub   []byte
+	SendIdx     uint32
+	RecvIdx     uint32
+	PrevMsg     uint32
+	SkippedKeys map[string][]byte
+}
+
 func NewSessionInitiator(sharedKey []byte, bobRatchetPub x448.Key) (*Session, error) {
 	s := &Session{
 		rootKey:     sharedKey,
@@ -61,6 +74,36 @@ func NewSessionResponder(sharedKey []byte, bobRatchetPriv x448.Key) *Session {
 	x448.KeyGen(&s.localPub, &s.localDH)
 
 	return s
+}
+
+func (s *Session) Snapshot() *SessionState {
+	return &SessionState{
+		RootKey:     s.rootKey,
+		SendCK:      s.sendCK,
+		RecvCK:      s.recvCK,
+		LocalDH:     s.localDH[:],
+		LocalPub:    s.localPub[:],
+		RemotePub:   s.remotePub[:],
+		SendIdx:     s.sendIdx,
+		RecvIdx:     s.recvIdx,
+		PrevMsg:     s.prevMsg,
+		SkippedKeys: s.skippedKeys,
+	}
+}
+
+func RestoreSession(state *SessionState) *Session {
+	return &Session{
+		rootKey:     state.RootKey,
+		sendCK:      state.SendCK,
+		recvCK:      state.RecvCK,
+		localDH:     x448.Key(state.LocalDH),
+		localPub:    x448.Key(state.LocalPub),
+		remotePub:   x448.Key(state.RemotePub),
+		sendIdx:     state.SendIdx,
+		recvIdx:     state.RecvIdx,
+		prevMsg:     state.PrevMsg,
+		skippedKeys: state.SkippedKeys,
+	}
 }
 
 func (s *Session) Encrypt(plaintext, aliceIK, bobIK []byte) (ciphertext, iv []byte, header *Header, err error) {
