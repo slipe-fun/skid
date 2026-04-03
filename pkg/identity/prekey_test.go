@@ -18,7 +18,7 @@ func TestNewPreKeyBundleProducesVerifiableSignature(t *testing.T) {
 		t.Fatalf("NewPreKeyBundle: %v", err)
 	}
 
-	if len(privateBundle.IK_Priv) == 0 || len(privateBundle.SPK_Priv) == 0 || len(privateBundle.OPK_Priv) == 0 || len(privateBundle.Kyber768_Priv) == 0 {
+	if len(privateBundle.SPK_Priv) == 0 || len(privateBundle.OPK_Priv) == 0 || len(privateBundle.Kyber768_Priv) == 0 {
 		t.Fatal("expected private bundle keys to be populated")
 	}
 

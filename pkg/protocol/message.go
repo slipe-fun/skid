@@ -16,9 +16,7 @@ type PreKeyMessage struct {
 	EKPub           []byte `json:"ek"`
 	KyberCiphertext []byte `json:"k_ct"`
 
-	SPKID  uint32 `json:"spk_id"`
-	OPKID  uint32 `json:"opk_id,omitempty"`
-	PQPKID uint32 `json:"pqpk_id,omitempty"`
+	Signature []byte `json:"signature"`
 
 	Message *RatchetMessage `json:"msg"`
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"github.com/cloudflare/circl/sign/ed448"
 	"github.com/slipe-fun/skid/internal/crypto"
 	"github.com/slipe-fun/skid/pkg/handshake"
 	"github.com/slipe-fun/skid/pkg/identity"
@@ -35,17 +36,20 @@ func main() {
 		panic(err)
 	}
 
+	_ = alicePublicPreKeyBundle
+	_ = alicePrivatePreKeyBundle
+
 	aliceEK_Pub, aliceEK_Priv, err := crypto.GenerateECDHKeyPair()
 	if err != nil {
 		panic(err)
 	}
 
-	aliceSharedKey, aliceInitialMessage, err := handshake.Initiate(alicePublicPreKeyBundle.IK_Pub, alicePrivatePreKeyBundle.IK_Priv, aliceEK_Pub, aliceEK_Priv, bobPublicPreKeyBundle)
+	aliceSharedKey, aliceInitialMessage, err := handshake.Initiate(aliceEK_Pub, aliceEK_Priv, alicePublicDevice, alicePrivateDevice, bobPublicDevice, bobPublicPreKeyBundle)
 	if err != nil {
 		panic(err)
 	}
 
-	aliceDR, err := protocol.NewSessionInitiator(aliceSharedKey, bobPublicPreKeyBundle.IK_Pub)
+	aliceDR, err := protocol.NewSessionInitiator(aliceSharedKey, bobPublicDevice.IK)
 	if err != nil {
 		panic(err)
 	}
@@ -55,23 +59,25 @@ func main() {
 		panic(err)
 	}
 
-	aliceInitialMessage.Message, err = aliceDR.Encrypt(chatKey, alicePublicPreKeyBundle.IK_Pub[:], bobPublicPreKeyBundle.IK_Pub[:])
+	aliceInitialMessage.Message, err = aliceDR.Encrypt(chatKey, alicePublicDevice.IK[:], bobPublicDevice.IK[:])
 	if err != nil {
 		panic(err)
 	}
+
+	aliceInitialMessage.Signature = ed448.Sign(alicePrivateDevice.SignatureKey, protocol.BuildPrekeyMessageBundleHash(aliceInitialMessage), protocol.PrekeyMessageBundleDomainPrefix)
 
 	fmt.Printf("Encrypted key: %s \n", hex.EncodeToString(chatKey))
 
 	//bob
 
-	bobSharedKey, err := handshake.Respond(bobPrivatePreKeyBundle, aliceInitialMessage)
+	bobSharedKey, err := handshake.Respond(bobPrivateDevice, bobPrivatePreKeyBundle, alicePublicDevice, aliceInitialMessage)
 	if err != nil {
 		panic(err)
 	}
 
-	bobDR := protocol.NewSessionResponder(bobSharedKey, bobPrivatePreKeyBundle.IK_Priv)
+	bobDR := protocol.NewSessionResponder(bobSharedKey, bobPrivateDevice.IK)
 
-	plain, err := bobDR.Decrypt(aliceInitialMessage.Message, alicePublicPreKeyBundle.IK_Pub[:], bobPublicPreKeyBundle.IK_Pub[:])
+	plain, err := bobDR.Decrypt(aliceInitialMessage.Message, alicePublicDevice.IK[:], bobPublicDevice.IK[:])
 	if err != nil {
 		panic(err)
 	}

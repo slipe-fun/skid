@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/cloudflare/circl/sign/ed448"
 	"github.com/slipe-fun/skid/internal/crypto"
 	"github.com/slipe-fun/skid/pkg/handshake"
 	"github.com/slipe-fun/skid/pkg/identity"
@@ -24,43 +25,45 @@ func TestPreKeyMessageCarriesFirstRatchetMessage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDevice(alice): %v", err)
 	}
-	alicePublicPreKeyBundle, alicePrivatePreKeyBundle, err := identity.NewPreKeyBundle(alicePublicDevice, alicePrivateDevice)
-	if err != nil {
-		t.Fatalf("NewPreKeyBundle(alice): %v", err)
-	}
 
 	aliceEKPub, aliceEKPriv, err := crypto.GenerateECDHKeyPair()
 	if err != nil {
 		t.Fatalf("GenerateECDHKeyPair(EK): %v", err)
 	}
 
-	aliceSharedKey, preKeyMessage, err := handshake.Initiate(alicePublicPreKeyBundle.IK_Pub, alicePrivatePreKeyBundle.IK_Priv, aliceEKPub, aliceEKPriv, bobPublicPreKeyBundle)
+	aliceSharedKey, preKeyMessage, err := handshake.Initiate(aliceEKPub, aliceEKPriv, alicePublicDevice, alicePrivateDevice, bobPublicDevice, bobPublicPreKeyBundle)
 	if err != nil {
 		t.Fatalf("Initiate: %v", err)
 	}
 
-	aliceDR, err := protocol.NewSessionInitiator(aliceSharedKey, bobPublicPreKeyBundle.IK_Pub)
+	aliceDR, err := protocol.NewSessionInitiator(aliceSharedKey, bobPublicDevice.IK)
 	if err != nil {
 		t.Fatalf("NewSessionInitiator: %v", err)
 	}
 
 	plaintext := []byte("hello from embedded message")
-	preKeyMessage.Message, err = aliceDR.Encrypt(plaintext, alicePublicPreKeyBundle.IK_Pub[:], bobPublicPreKeyBundle.IK_Pub[:])
+	preKeyMessage.Message, err = aliceDR.Encrypt(plaintext, alicePublicDevice.IK[:], bobPublicDevice.IK[:])
 	if err != nil {
 		t.Fatalf("Encrypt: %v", err)
 	}
+
+	preKeyMessage.Signature = ed448.Sign(
+		alicePrivateDevice.SignatureKey,
+		protocol.BuildPrekeyMessageBundleHash(preKeyMessage),
+		protocol.PrekeyMessageBundleDomainPrefix,
+	)
 
 	if preKeyMessage.Message == nil {
 		t.Fatal("expected embedded ratchet message")
 	}
 
-	bobSharedKey, err := handshake.Respond(bobPrivatePreKeyBundle, preKeyMessage)
+	bobSharedKey, err := handshake.Respond(bobPrivateDevice, bobPrivatePreKeyBundle, alicePublicDevice, preKeyMessage)
 	if err != nil {
 		t.Fatalf("Respond: %v", err)
 	}
 
-	bobDR := protocol.NewSessionResponder(bobSharedKey, bobPrivatePreKeyBundle.IK_Priv)
-	got, err := bobDR.Decrypt(preKeyMessage.Message, alicePublicPreKeyBundle.IK_Pub[:], bobPublicPreKeyBundle.IK_Pub[:])
+	bobDR := protocol.NewSessionResponder(bobSharedKey, bobPrivateDevice.IK)
+	got, err := bobDR.Decrypt(preKeyMessage.Message, alicePublicDevice.IK[:], bobPublicDevice.IK[:])
 	if err != nil {
 		t.Fatalf("Decrypt: %v", err)
 	}

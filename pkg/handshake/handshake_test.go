@@ -12,7 +12,20 @@ import (
 	"github.com/slipe-fun/skid/pkg/protocol"
 )
 
-func newSignedBundle(t *testing.T) (*identity.PublicPreKeyBundle, *identity.PrivatePreKeyBundle) {
+type handshakeFixture struct {
+	bobPublicDevice  *identity.PublicDevice
+	bobPrivateDevice *identity.PrivateDevice
+	bobPublicBundle  *identity.PublicPreKeyBundle
+	bobPrivateBundle *identity.PrivatePreKeyBundle
+
+	alicePublicDevice  *identity.PublicDevice
+	alicePrivateDevice *identity.PrivateDevice
+
+	aliceShared []byte
+	preKeyMsg   *protocol.PreKeyMessage
+}
+
+func newSignedBundle(t *testing.T) (*identity.PublicDevice, *identity.PrivateDevice, *identity.PublicPreKeyBundle, *identity.PrivatePreKeyBundle) {
 	t.Helper()
 
 	publicDevice, privateDevice, err := identity.NewDevice()
@@ -25,47 +38,87 @@ func newSignedBundle(t *testing.T) (*identity.PublicPreKeyBundle, *identity.Priv
 		t.Fatalf("NewPreKeyBundle: %v", err)
 	}
 
-	return publicBundle, privateBundle
+	return publicDevice, privateDevice, publicBundle, privateBundle
 }
 
-func TestInitiateRespondDeriveSameSharedKey(t *testing.T) {
-	bobPublicBundle, bobPrivateBundle := newSignedBundle(t)
-	alicePublicBundle, alicePrivateBundle := newSignedBundle(t)
+func newHandshakeFixture(t *testing.T) *handshakeFixture {
+	t.Helper()
+
+	bobPublicDevice, bobPrivateDevice, bobPublicBundle, bobPrivateBundle := newSignedBundle(t)
+
+	alicePublicDevice, alicePrivateDevice, err := identity.NewDevice()
+	if err != nil {
+		t.Fatalf("NewDevice(alice): %v", err)
+	}
 
 	aliceEKPub, aliceEKPriv, err := intcrypto.GenerateECDHKeyPair()
 	if err != nil {
-		t.Fatalf("GenerateECDHKeyPair: %v", err)
+		t.Fatalf("GenerateECDHKeyPair(EK): %v", err)
 	}
 
-	aliceShared, preKeyMessage, err := Initiate(alicePublicBundle.IK_Pub, alicePrivateBundle.IK_Priv, aliceEKPub, aliceEKPriv, bobPublicBundle)
+	aliceShared, preKeyMsg, err := Initiate(aliceEKPub, aliceEKPriv, alicePublicDevice, alicePrivateDevice, bobPublicDevice, bobPublicBundle)
 	if err != nil {
 		t.Fatalf("Initiate: %v", err)
 	}
 
-	bobShared, err := Respond(bobPrivateBundle, preKeyMessage)
+	aliceDR, err := protocol.NewSessionInitiator(aliceShared, bobPublicDevice.IK)
+	if err != nil {
+		t.Fatalf("NewSessionInitiator: %v", err)
+	}
+
+	preKeyMsg.Message, err = aliceDR.Encrypt([]byte("embedded first message"), alicePublicDevice.IK[:], bobPublicDevice.IK[:])
+	if err != nil {
+		t.Fatalf("Encrypt(first message): %v", err)
+	}
+
+	preKeyMsg.Signature = ed448.Sign(
+		alicePrivateDevice.SignatureKey,
+		protocol.BuildPrekeyMessageBundleHash(preKeyMsg),
+		protocol.PrekeyMessageBundleDomainPrefix,
+	)
+
+	return &handshakeFixture{
+		bobPublicDevice:    bobPublicDevice,
+		bobPrivateDevice:   bobPrivateDevice,
+		bobPublicBundle:    bobPublicBundle,
+		bobPrivateBundle:   bobPrivateBundle,
+		alicePublicDevice:  alicePublicDevice,
+		alicePrivateDevice: alicePrivateDevice,
+		aliceShared:        aliceShared,
+		preKeyMsg:          preKeyMsg,
+	}
+}
+
+func TestInitiateRespondDeriveSameSharedKey(t *testing.T) {
+	fixture := newHandshakeFixture(t)
+
+	bobShared, err := Respond(fixture.bobPrivateDevice, fixture.bobPrivateBundle, fixture.alicePublicDevice, fixture.preKeyMsg)
 	if err != nil {
 		t.Fatalf("Respond: %v", err)
 	}
 
-	if !bytes.Equal(aliceShared, bobShared) {
+	if !bytes.Equal(fixture.aliceShared, bobShared) {
 		t.Fatal("initiator and responder shared keys differ")
 	}
 
-	if preKeyMessage.Version != protocol.CurrentVersion || preKeyMessage.Type != protocol.MessageTypePreKey {
+	if fixture.preKeyMsg.Version != protocol.CurrentVersion || fixture.preKeyMsg.Type != protocol.MessageTypePreKey {
 		t.Fatal("unexpected prekey message metadata")
 	}
 
-	if !bytes.Equal(preKeyMessage.IKPub, alicePublicBundle.IK_Pub[:]) {
+	if !bytes.Equal(fixture.preKeyMsg.IKPub, fixture.alicePublicDevice.IK[:]) {
 		t.Fatal("prekey message IK does not match initiator IK")
 	}
-	if !bytes.Equal(preKeyMessage.EKPub, aliceEKPub[:]) {
-		t.Fatal("prekey message EK does not match initiator EK")
+	if fixture.preKeyMsg.Message == nil {
+		t.Fatal("expected nested ratchet message to be present")
 	}
 }
 
 func TestInitiateRejectsInvalidBundleSignature(t *testing.T) {
-	bobPublicBundle, _ := newSignedBundle(t)
-	alicePublicBundle, alicePrivateBundle := newSignedBundle(t)
+	bobPublicDevice, _, bobPublicBundle, _ := newSignedBundle(t)
+	alicePublicDevice, alicePrivateDevice, err := identity.NewDevice()
+	if err != nil {
+		t.Fatalf("NewDevice(alice): %v", err)
+	}
 
 	aliceEKPub, aliceEKPriv, err := intcrypto.GenerateECDHKeyPair()
 	if err != nil {
@@ -76,21 +129,17 @@ func TestInitiateRejectsInvalidBundleSignature(t *testing.T) {
 	tampered.Kyber768_Pub = append([]byte(nil), bobPublicBundle.Kyber768_Pub...)
 	tampered.Kyber768_Pub[0] ^= 0xFF
 
-	if _, _, err := Initiate(alicePublicBundle.IK_Pub, alicePrivateBundle.IK_Priv, aliceEKPub, aliceEKPriv, &tampered); err == nil || !strings.Contains(err.Error(), "invalid signature") {
+	if _, _, err := Initiate(aliceEKPub, aliceEKPriv, alicePublicDevice, alicePrivateDevice, bobPublicDevice, &tampered); err == nil || !strings.Contains(err.Error(), "invalid signature") {
 		t.Fatalf("expected invalid signature error, got %v", err)
 	}
 }
 
 func TestInitiateRejectsLowOrderBundleKey(t *testing.T) {
-	publicDevice, privateDevice, err := identity.NewDevice()
+	bobPublicDevice, bobPrivateDevice, err := identity.NewDevice()
 	if err != nil {
-		t.Fatalf("NewDevice: %v", err)
+		t.Fatalf("NewDevice(bob): %v", err)
 	}
 
-	ikPub, _, err := intcrypto.GenerateECDHKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateECDHKeyPair(IK): %v", err)
-	}
 	opkPub, _, err := intcrypto.GenerateECDHKeyPair()
 	if err != nil {
 		t.Fatalf("GenerateECDHKeyPair(OPK): %v", err)
@@ -101,91 +150,121 @@ func TestInitiateRejectsLowOrderBundleKey(t *testing.T) {
 	}
 
 	maliciousBundle := &identity.PublicPreKeyBundle{
-		IK_Pub:        ikPub,
 		SPK_Pub:       x448.Key{},
 		OPK_Pub:       opkPub,
 		Kyber768_Pub:  kyberPub,
-		Signature_Pub: publicDevice.SignatureKey,
+		Signature_Pub: bobPublicDevice.SignatureKey,
 	}
-	maliciousBundle.Signature = ed448.Sign(privateDevice.SignatureKey, identity.BuildPrekeyBundleHash(maliciousBundle), identity.PrekeyBundleDomainPrefix)
+	maliciousBundle.Signature = ed448.Sign(
+		bobPrivateDevice.SignatureKey,
+		identity.BuildPrekeyBundleHash(maliciousBundle),
+		identity.PrekeyBundleDomainPrefix,
+	)
 
-	alicePublicBundle, alicePrivateBundle := newSignedBundle(t)
+	alicePublicDevice, alicePrivateDevice, err := identity.NewDevice()
+	if err != nil {
+		t.Fatalf("NewDevice(alice): %v", err)
+	}
 	aliceEKPub, aliceEKPriv, err := intcrypto.GenerateECDHKeyPair()
 	if err != nil {
-		t.Fatalf("GenerateECDHKeyPair: %v", err)
+		t.Fatalf("GenerateECDHKeyPair(EK): %v", err)
 	}
 
-	if _, _, err := Initiate(alicePublicBundle.IK_Pub, alicePrivateBundle.IK_Priv, aliceEKPub, aliceEKPriv, maliciousBundle); err == nil || !strings.Contains(err.Error(), "low-order") {
+	if _, _, err := Initiate(aliceEKPub, aliceEKPriv, alicePublicDevice, alicePrivateDevice, bobPublicDevice, maliciousBundle); err == nil || !strings.Contains(err.Error(), "low-order") {
 		t.Fatalf("expected low-order point error, got %v", err)
 	}
 }
 
 func TestRespondRejectsNilPreKeyMessage(t *testing.T) {
-	_, bobPrivateBundle := newSignedBundle(t)
+	_, bobPrivateDevice, _, bobPrivateBundle := newSignedBundle(t)
+	alicePublicDevice, _, err := identity.NewDevice()
+	if err != nil {
+		t.Fatalf("NewDevice(alice): %v", err)
+	}
 
-	if _, err := Respond(bobPrivateBundle, nil); err == nil {
+	if _, err := Respond(bobPrivateDevice, bobPrivateBundle, alicePublicDevice, nil); err == nil {
 		t.Fatal("expected nil prekey message error")
 	}
 }
 
 func TestRespondRejectsUnsupportedVersion(t *testing.T) {
-	_, bobPrivateBundle := newSignedBundle(t)
+	_, bobPrivateDevice, _, bobPrivateBundle := newSignedBundle(t)
+	alicePublicDevice, _, err := identity.NewDevice()
+	if err != nil {
+		t.Fatalf("NewDevice(alice): %v", err)
+	}
 
 	msg := &protocol.PreKeyMessage{
 		Version: protocol.CurrentVersion + 1,
 		Type:    protocol.MessageTypePreKey,
 	}
 
-	if _, err := Respond(bobPrivateBundle, msg); err == nil || !strings.Contains(err.Error(), "unsupported prekey message version") {
+	if _, err := Respond(bobPrivateDevice, bobPrivateBundle, alicePublicDevice, msg); err == nil || !strings.Contains(err.Error(), "unsupported prekey message version") {
 		t.Fatalf("expected unsupported version error, got %v", err)
 	}
 }
 
 func TestRespondRejectsUnexpectedType(t *testing.T) {
-	_, bobPrivateBundle := newSignedBundle(t)
+	_, bobPrivateDevice, _, bobPrivateBundle := newSignedBundle(t)
+	alicePublicDevice, _, err := identity.NewDevice()
+	if err != nil {
+		t.Fatalf("NewDevice(alice): %v", err)
+	}
 
 	msg := &protocol.PreKeyMessage{
 		Version: protocol.CurrentVersion,
 		Type:    protocol.MessageTypeRatchet,
 	}
 
-	if _, err := Respond(bobPrivateBundle, msg); err == nil || !strings.Contains(err.Error(), "unexpected prekey message type") {
+	if _, err := Respond(bobPrivateDevice, bobPrivateBundle, alicePublicDevice, msg); err == nil || !strings.Contains(err.Error(), "unexpected prekey message type") {
 		t.Fatalf("expected unexpected type error, got %v", err)
 	}
 }
 
-func TestRespondRejectsInvalidKeyLength(t *testing.T) {
-	_, bobPrivateBundle := newSignedBundle(t)
+func TestRespondRejectsMissingRatchetMessage(t *testing.T) {
+	fixture := newHandshakeFixture(t)
+	fixture.preKeyMsg.Message = nil
+	fixture.preKeyMsg.Signature = nil
 
-	msg := &protocol.PreKeyMessage{
-		Version: protocol.CurrentVersion,
-		Type:    protocol.MessageTypePreKey,
-		IKPub:   []byte{1, 2, 3},
-		EKPub:   make([]byte, len(x448.Key{})),
+	if _, err := Respond(fixture.bobPrivateDevice, fixture.bobPrivateBundle, fixture.alicePublicDevice, fixture.preKeyMsg); err == nil || !strings.Contains(err.Error(), "ratchet message is required") {
+		t.Fatalf("expected missing ratchet message error, got %v", err)
 	}
+}
 
-	if _, err := Respond(bobPrivateBundle, msg); err == nil || !strings.Contains(err.Error(), "invalid x448 key length") {
+func TestRespondRejectsInvalidSignature(t *testing.T) {
+	fixture := newHandshakeFixture(t)
+	fixture.preKeyMsg.Signature = append([]byte(nil), fixture.preKeyMsg.Signature...)
+	fixture.preKeyMsg.Signature[0] ^= 0xFF
+
+	if _, err := Respond(fixture.bobPrivateDevice, fixture.bobPrivateBundle, fixture.alicePublicDevice, fixture.preKeyMsg); err == nil || !strings.Contains(err.Error(), "invalid signature") {
+		t.Fatalf("expected invalid signature error, got %v", err)
+	}
+}
+
+func TestRespondRejectsInvalidKeyLength(t *testing.T) {
+	fixture := newHandshakeFixture(t)
+	fixture.preKeyMsg.IKPub = []byte{1, 2, 3}
+	fixture.preKeyMsg.Signature = ed448.Sign(
+		fixture.alicePrivateDevice.SignatureKey,
+		protocol.BuildPrekeyMessageBundleHash(fixture.preKeyMsg),
+		protocol.PrekeyMessageBundleDomainPrefix,
+	)
+
+	if _, err := Respond(fixture.bobPrivateDevice, fixture.bobPrivateBundle, fixture.alicePublicDevice, fixture.preKeyMsg); err == nil || !strings.Contains(err.Error(), "invalid x448 key length") {
 		t.Fatalf("expected invalid x448 key length error, got %v", err)
 	}
 }
 
 func TestRespondRejectsInvalidKyberCiphertextSize(t *testing.T) {
-	bobPublicBundle, bobPrivateBundle := newSignedBundle(t)
-	alicePublicBundle, alicePrivateBundle := newSignedBundle(t)
+	fixture := newHandshakeFixture(t)
+	fixture.preKeyMsg.KyberCiphertext = []byte("bad")
+	fixture.preKeyMsg.Signature = ed448.Sign(
+		fixture.alicePrivateDevice.SignatureKey,
+		protocol.BuildPrekeyMessageBundleHash(fixture.preKeyMsg),
+		protocol.PrekeyMessageBundleDomainPrefix,
+	)
 
-	aliceEKPub, aliceEKPriv, err := intcrypto.GenerateECDHKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateECDHKeyPair: %v", err)
-	}
-
-	_, msg, err := Initiate(alicePublicBundle.IK_Pub, alicePrivateBundle.IK_Priv, aliceEKPub, aliceEKPriv, bobPublicBundle)
-	if err != nil {
-		t.Fatalf("Initiate: %v", err)
-	}
-
-	msg.KyberCiphertext = []byte("bad")
-
-	if _, err := Respond(bobPrivateBundle, msg); err == nil || !strings.Contains(err.Error(), "invalid ciphertext size") {
+	if _, err := Respond(fixture.bobPrivateDevice, fixture.bobPrivateBundle, fixture.alicePublicDevice, fixture.preKeyMsg); err == nil || !strings.Contains(err.Error(), "invalid ciphertext size") {
 		t.Fatalf("expected invalid ciphertext size error, got %v", err)
 	}
 }

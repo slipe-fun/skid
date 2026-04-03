@@ -11,15 +11,15 @@ import (
 )
 
 func Initiate(
-	aliceIK_Pub, aliceIK_Priv x448.Key,
 	aliceEK_Pub, aliceEK_Priv x448.Key,
-	bobBundle *identity.PublicPreKeyBundle,
+	alicePublicDevice *identity.PublicDevice, alicePrivateDevice *identity.PrivateDevice,
+	bobDevice *identity.PublicDevice, bobBundle *identity.PublicPreKeyBundle,
 ) ([]byte, *protocol.PreKeyMessage, error) {
-	if valid := ed448.Verify(bobBundle.Signature_Pub, identity.BuildPrekeyBundleHash(bobBundle), bobBundle.Signature, identity.PrekeyBundleDomainPrefix); !valid {
+	if valid := ed448.Verify(bobDevice.SignatureKey, identity.BuildPrekeyBundleHash(bobBundle), bobBundle.Signature, identity.PrekeyBundleDomainPrefix); !valid {
 		return nil, nil, errors.New("invalid signature")
 	}
 
-	dh1, dh2, dh3, dh4, err := crypto.X3DH_Initiator(aliceIK_Priv, aliceEK_Priv, bobBundle.IK_Pub, bobBundle.SPK_Pub, bobBundle.OPK_Pub)
+	dh1, dh2, dh3, dh4, err := crypto.X3DH_Initiator(alicePrivateDevice.IK, aliceEK_Priv, bobDevice.IK, bobBundle.SPK_Pub, bobBundle.OPK_Pub)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -34,7 +34,7 @@ func Initiate(
 	aliceInitialMessage := &protocol.PreKeyMessage{
 		Version:         protocol.CurrentVersion,
 		Type:            protocol.MessageTypePreKey,
-		IKPub:           append([]byte(nil), aliceIK_Pub[:]...),
+		IKPub:           append([]byte(nil), alicePublicDevice.IK[:]...),
 		EKPub:           append([]byte(nil), aliceEK_Pub[:]...),
 		KyberCiphertext: kyberCiphertext,
 	}

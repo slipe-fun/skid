@@ -7,7 +7,8 @@ import (
 )
 
 var (
-	aadDomainPrefix = sha256.Sum256([]byte("SKID-PROTOCOL-V1-AAD"))
+	aadDomainPrefix                 = sha256.Sum256([]byte("SKID-PROTOCOL-V1-AAD"))
+	PrekeyMessageBundleDomainPrefix = "SKID-PREKEY-V1"
 )
 
 func GenerateAAD(
@@ -39,4 +40,32 @@ func GenerateAAD(
 	aad = append(aad, buf...)
 
 	return aad
+}
+
+func GeneratePrekeyMessageBundle(prekey *PreKeyMessage) []byte {
+	out := make([]byte, 0,
+		16+
+			1+
+			1+
+			len(prekey.SessionID)+
+			len(prekey.IKPub)+
+			len(prekey.EKPub)+
+			len(prekey.KyberCiphertext),
+	)
+
+	out = append(out, []byte(PrekeyMessageBundleDomainPrefix)...)
+	out = append(out, prekey.Version)
+	out = append(out, prekey.Type)
+	out = append(out, prekey.SessionID...)
+	out = append(out, prekey.IKPub...)
+	out = append(out, prekey.EKPub...)
+	out = append(out, prekey.KyberCiphertext...)
+
+	return out
+}
+
+func BuildPrekeyMessageBundleHash(prekey *PreKeyMessage) []byte {
+	msg := GeneratePrekeyMessageBundle(prekey)
+	sum := sha256.Sum256(msg)
+	return sum[:]
 }
