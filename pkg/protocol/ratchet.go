@@ -11,8 +11,9 @@ import (
 )
 
 var (
-	maxSkipMessagesLimit  = 2000
-	maxSkippedKeysMapSize = 10000
+	maxSkipMessagesLimit       = 2000
+	maxSkippedKeysMapSize      = 10000
+	errMessageAlreadyProcessed = errors.New("message index already processed")
 )
 
 type Session struct {
@@ -79,32 +80,86 @@ func NewSessionResponder(sharedKey []byte, bobRatchetPriv x448.Key) *Session {
 
 func (s *Session) Snapshot() *SessionState {
 	return &SessionState{
-		RootKey:     s.rootKey,
-		SendCK:      s.sendCK,
-		RecvCK:      s.recvCK,
-		LocalDH:     s.localDH[:],
-		LocalPub:    s.localPub[:],
-		RemotePub:   s.remotePub[:],
+		RootKey:     cloneBytes(s.rootKey),
+		SendCK:      cloneBytes(s.sendCK),
+		RecvCK:      cloneBytes(s.recvCK),
+		LocalDH:     append([]byte(nil), s.localDH[:]...),
+		LocalPub:    append([]byte(nil), s.localPub[:]...),
+		RemotePub:   append([]byte(nil), s.remotePub[:]...),
 		SendIdx:     s.sendIdx,
 		RecvIdx:     s.recvIdx,
 		PrevMsg:     s.prevMsg,
-		SkippedKeys: s.skippedKeys,
+		SkippedKeys: cloneSkippedKeys(s.skippedKeys),
 	}
 }
 
 func RestoreSession(state *SessionState) *Session {
+	var localDH, localPub, remotePub x448.Key
+	copy(localDH[:], state.LocalDH)
+	copy(localPub[:], state.LocalPub)
+	copy(remotePub[:], state.RemotePub)
+
 	return &Session{
-		rootKey:     state.RootKey,
-		sendCK:      state.SendCK,
-		recvCK:      state.RecvCK,
-		localDH:     x448.Key(state.LocalDH),
-		localPub:    x448.Key(state.LocalPub),
-		remotePub:   x448.Key(state.RemotePub),
+		rootKey:     cloneBytes(state.RootKey),
+		sendCK:      cloneBytes(state.SendCK),
+		recvCK:      cloneBytes(state.RecvCK),
+		localDH:     localDH,
+		localPub:    localPub,
+		remotePub:   remotePub,
 		sendIdx:     state.SendIdx,
 		recvIdx:     state.RecvIdx,
 		prevMsg:     state.PrevMsg,
-		skippedKeys: state.SkippedKeys,
+		skippedKeys: cloneSkippedKeys(state.SkippedKeys),
 	}
+}
+
+func cloneBytes(src []byte) []byte {
+	return append([]byte(nil), src...)
+}
+
+func cloneSkippedKeys(src map[string][]byte) map[string][]byte {
+	if len(src) == 0 {
+		return make(map[string][]byte)
+	}
+
+	dst := make(map[string][]byte, len(src))
+	for key, value := range src {
+		dst[key] = cloneBytes(value)
+	}
+
+	return dst
+}
+
+func (s *Session) clone() *Session {
+	if s == nil {
+		return nil
+	}
+
+	return &Session{
+		rootKey:     cloneBytes(s.rootKey),
+		sendCK:      cloneBytes(s.sendCK),
+		recvCK:      cloneBytes(s.recvCK),
+		localDH:     s.localDH,
+		localPub:    s.localPub,
+		remotePub:   s.remotePub,
+		sendIdx:     s.sendIdx,
+		recvIdx:     s.recvIdx,
+		prevMsg:     s.prevMsg,
+		skippedKeys: cloneSkippedKeys(s.skippedKeys),
+	}
+}
+
+func (s *Session) replace(next *Session) {
+	s.rootKey = next.rootKey
+	s.sendCK = next.sendCK
+	s.recvCK = next.recvCK
+	s.localDH = next.localDH
+	s.localPub = next.localPub
+	s.remotePub = next.remotePub
+	s.sendIdx = next.sendIdx
+	s.recvIdx = next.recvIdx
+	s.prevMsg = next.prevMsg
+	s.skippedKeys = next.skippedKeys
 }
 
 func (s *Session) Encrypt(plaintext, aliceIK, bobIK []byte) (*RatchetMessage, error) {
@@ -154,34 +209,49 @@ func (s *Session) Decrypt(message *RatchetMessage, aliceIK, bobIK []byte) ([]byt
 	}
 
 	aad := GenerateAAD(message, aliceIK, bobIK)
+	working := s.clone()
 
 	keyID := fmt.Sprintf("%x_%d", message.RatchetPub, message.Index)
-	if key, ok := s.skippedKeys[keyID]; ok {
+	if key, ok := working.skippedKeys[keyID]; ok {
 		plaintext, err := crypto.Decrypt(key, message.Ciphertext, message.Nonce, aad)
 		if err != nil {
 			return nil, err
 		}
-		delete(s.skippedKeys, keyID)
+		delete(working.skippedKeys, keyID)
+		s.replace(working)
 		return plaintext, nil
 	}
 
-	if !bytes.Equal(message.RatchetPub, s.remotePub[:]) {
-		if err := s.performRatchetStep(remotePub); err != nil {
+	if !bytes.Equal(message.RatchetPub, working.remotePub[:]) {
+		if err := working.skipMessages(message.PrevIdx); err != nil {
+			return nil, err
+		}
+		if err := working.performRatchetStep(remotePub); err != nil {
 			return nil, err
 		}
 	}
 
-	if message.Index > s.recvIdx {
-		if err := s.skipMessages(message.Index); err != nil {
+	if message.Index < working.recvIdx {
+		return nil, errMessageAlreadyProcessed
+	}
+
+	if message.Index > working.recvIdx {
+		if err := working.skipMessages(message.Index); err != nil {
 			return nil, err
 		}
 	}
 
-	newCK, msgKey := kdfCK(s.recvCK)
-	s.recvCK = newCK
-	s.recvIdx++
+	newCK, msgKey := kdfCK(working.recvCK)
+	plaintext, err := crypto.Decrypt(msgKey, message.Ciphertext, message.Nonce, aad)
+	if err != nil {
+		return nil, err
+	}
 
-	return crypto.Decrypt(msgKey, message.Ciphertext, message.Nonce, aad)
+	working.recvCK = newCK
+	working.recvIdx++
+	s.replace(working)
+
+	return plaintext, nil
 }
 
 func (s *Session) performRatchetStep(remotePub x448.Key) error {

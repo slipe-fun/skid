@@ -264,6 +264,92 @@ func TestDecryptRejectsTooManySkippedMessages(t *testing.T) {
 	}
 }
 
+func TestReplayDoesNotAdvanceReceiveState(t *testing.T) {
+	alice, bob, aliceIK, bobIK := newTestSessions(t)
+
+	first, err := alice.Encrypt([]byte("first"), aliceIK, bobIK)
+	if err != nil {
+		t.Fatalf("Encrypt(first): %v", err)
+	}
+	second, err := alice.Encrypt([]byte("second"), aliceIK, bobIK)
+	if err != nil {
+		t.Fatalf("Encrypt(second): %v", err)
+	}
+
+	if _, err := bob.Decrypt(first, aliceIK, bobIK); err != nil {
+		t.Fatalf("Decrypt(first): %v", err)
+	}
+	if _, err := bob.Decrypt(second, aliceIK, bobIK); err != nil {
+		t.Fatalf("Decrypt(second): %v", err)
+	}
+
+	if _, err := bob.Decrypt(first, aliceIK, bobIK); err == nil || !strings.Contains(err.Error(), "already processed") {
+		t.Fatalf("expected replay rejection, got %v", err)
+	}
+
+	third, err := alice.Encrypt([]byte("third"), aliceIK, bobIK)
+	if err != nil {
+		t.Fatalf("Encrypt(third): %v", err)
+	}
+
+	got, err := bob.Decrypt(third, aliceIK, bobIK)
+	if err != nil {
+		t.Fatalf("Decrypt(third): %v", err)
+	}
+	if !bytes.Equal(got, []byte("third")) {
+		t.Fatalf("third plaintext mismatch: got %q", got)
+	}
+}
+
+func TestPreviousChainMessagesRemainDecryptableAfterRatchetStep(t *testing.T) {
+	alice, bob, aliceIK, bobIK := newTestSessions(t)
+
+	firstFromAlice, err := alice.Encrypt([]byte("a1"), aliceIK, bobIK)
+	if err != nil {
+		t.Fatalf("Encrypt(a1): %v", err)
+	}
+	if _, err := bob.Decrypt(firstFromAlice, aliceIK, bobIK); err != nil {
+		t.Fatalf("Decrypt(a1): %v", err)
+	}
+
+	firstFromBob, err := bob.Encrypt([]byte("b1"), aliceIK, bobIK)
+	if err != nil {
+		t.Fatalf("Encrypt(b1): %v", err)
+	}
+	delayedFromBob, err := bob.Encrypt([]byte("b2"), aliceIK, bobIK)
+	if err != nil {
+		t.Fatalf("Encrypt(b2): %v", err)
+	}
+
+	if _, err := alice.Decrypt(firstFromBob, aliceIK, bobIK); err != nil {
+		t.Fatalf("Decrypt(b1): %v", err)
+	}
+
+	secondFromAlice, err := alice.Encrypt([]byte("a2"), aliceIK, bobIK)
+	if err != nil {
+		t.Fatalf("Encrypt(a2): %v", err)
+	}
+	if _, err := bob.Decrypt(secondFromAlice, aliceIK, bobIK); err != nil {
+		t.Fatalf("Decrypt(a2): %v", err)
+	}
+
+	currentFromBob, err := bob.Encrypt([]byte("b3"), aliceIK, bobIK)
+	if err != nil {
+		t.Fatalf("Encrypt(b3): %v", err)
+	}
+	if _, err := alice.Decrypt(currentFromBob, aliceIK, bobIK); err != nil {
+		t.Fatalf("Decrypt(b3): %v", err)
+	}
+
+	got, err := alice.Decrypt(delayedFromBob, aliceIK, bobIK)
+	if err != nil {
+		t.Fatalf("Decrypt(delayed b2): %v", err)
+	}
+	if !bytes.Equal(got, []byte("b2")) {
+		t.Fatalf("delayed plaintext mismatch: got %q", got)
+	}
+}
+
 func TestSnapshotRestoreRoundTrip(t *testing.T) {
 	alice, bob, aliceIK, bobIK := newTestSessions(t)
 

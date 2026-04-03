@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/cloudflare/circl/sign/ed448"
 	"github.com/slipe-fun/skid/internal/crypto"
 	"github.com/slipe-fun/skid/pkg/handshake"
 	"github.com/slipe-fun/skid/pkg/identity"
@@ -36,7 +35,7 @@ func TestPreKeyMessageCarriesFirstRatchetMessage(t *testing.T) {
 		t.Fatalf("Initiate: %v", err)
 	}
 
-	aliceDR, err := protocol.NewSessionInitiator(aliceSharedKey, bobPublicDevice.IK)
+	aliceDR, err := protocol.NewSessionInitiator(aliceSharedKey, bobPublicPreKeyBundle.SPK_Pub)
 	if err != nil {
 		t.Fatalf("NewSessionInitiator: %v", err)
 	}
@@ -47,12 +46,6 @@ func TestPreKeyMessageCarriesFirstRatchetMessage(t *testing.T) {
 		t.Fatalf("Encrypt: %v", err)
 	}
 
-	preKeyMessage.Signature = ed448.Sign(
-		alicePrivateDevice.SignatureKey,
-		protocol.BuildPrekeyMessageBundleHash(preKeyMessage),
-		protocol.PrekeyMessageBundleDomainPrefix,
-	)
-
 	if preKeyMessage.Message == nil {
 		t.Fatal("expected embedded ratchet message")
 	}
@@ -62,7 +55,7 @@ func TestPreKeyMessageCarriesFirstRatchetMessage(t *testing.T) {
 		t.Fatalf("Respond: %v", err)
 	}
 
-	bobDR := protocol.NewSessionResponder(bobSharedKey, bobPrivateDevice.IK)
+	bobDR := protocol.NewSessionResponder(bobSharedKey, bobPrivatePreKeyBundle.SPK_Priv)
 	got, err := bobDR.Decrypt(preKeyMessage.Message, alicePublicDevice.IK[:], bobPublicDevice.IK[:])
 	if err != nil {
 		t.Fatalf("Decrypt: %v", err)

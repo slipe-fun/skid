@@ -16,8 +16,6 @@ type PreKeyMessage struct {
 	EKPub           []byte `json:"ek"`
 	KyberCiphertext []byte `json:"k_ct"`
 
-	Signature []byte `json:"signature"`
-
 	Message *RatchetMessage `json:"msg"`
 }
 

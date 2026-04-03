@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/cloudflare/circl/dh/x448"
-	"github.com/cloudflare/circl/sign/ed448"
 	"github.com/slipe-fun/skid/internal/crypto"
 	"github.com/slipe-fun/skid/pkg/identity"
 	"github.com/slipe-fun/skid/pkg/protocol"
@@ -12,7 +11,7 @@ import (
 
 func Respond(
 	bobDevice *identity.PrivateDevice, bobBundle *identity.PrivatePreKeyBundle,
-	aliceDevice *identity.PublicDevice, aliceMsg *protocol.PreKeyMessage,
+	_ *identity.PublicDevice, aliceMsg *protocol.PreKeyMessage,
 ) ([]byte, error) {
 	if bobBundle == nil {
 		return nil, fmt.Errorf("nil prekey bundle")
@@ -31,10 +30,6 @@ func Respond(
 	}
 	if bobBundle.Consumed {
 		return nil, fmt.Errorf("prekey bundle already consumed")
-	}
-
-	if valid := ed448.Verify(aliceDevice.SignatureKey, protocol.BuildPrekeyMessageBundleHash(aliceMsg), aliceMsg.Signature, protocol.PrekeyMessageBundleDomainPrefix); !valid {
-		return nil, fmt.Errorf("invalid signature")
 	}
 
 	aliceIK, err := decodeX448Key(aliceMsg.IKPub)

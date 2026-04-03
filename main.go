@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/cloudflare/circl/sign/ed448"
 	"github.com/slipe-fun/skid/internal/crypto"
 	"github.com/slipe-fun/skid/pkg/handshake"
 	"github.com/slipe-fun/skid/pkg/identity"
@@ -63,8 +62,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	aliceInitialMessage.Signature = ed448.Sign(alicePrivateDevice.SignatureKey, protocol.BuildPrekeyMessageBundleHash(aliceInitialMessage), protocol.PrekeyMessageBundleDomainPrefix)
 
 	fmt.Printf("Encrypted key: %s \n", hex.EncodeToString(chatKey))
 

@@ -61,7 +61,7 @@ func newHandshakeFixture(t *testing.T) *handshakeFixture {
 		t.Fatalf("Initiate: %v", err)
 	}
 
-	aliceDR, err := protocol.NewSessionInitiator(aliceShared, bobPublicDevice.IK)
+	aliceDR, err := protocol.NewSessionInitiator(aliceShared, bobPublicBundle.SPK_Pub)
 	if err != nil {
 		t.Fatalf("NewSessionInitiator: %v", err)
 	}
@@ -70,12 +70,6 @@ func newHandshakeFixture(t *testing.T) *handshakeFixture {
 	if err != nil {
 		t.Fatalf("Encrypt(first message): %v", err)
 	}
-
-	preKeyMsg.Signature = ed448.Sign(
-		alicePrivateDevice.SignatureKey,
-		protocol.BuildPrekeyMessageBundleHash(preKeyMsg),
-		protocol.PrekeyMessageBundleDomainPrefix,
-	)
 
 	return &handshakeFixture{
 		bobPublicDevice:    bobPublicDevice,
@@ -224,31 +218,15 @@ func TestRespondRejectsUnexpectedType(t *testing.T) {
 func TestRespondRejectsMissingRatchetMessage(t *testing.T) {
 	fixture := newHandshakeFixture(t)
 	fixture.preKeyMsg.Message = nil
-	fixture.preKeyMsg.Signature = nil
 
 	if _, err := Respond(fixture.bobPrivateDevice, fixture.bobPrivateBundle, fixture.alicePublicDevice, fixture.preKeyMsg); err == nil || !strings.Contains(err.Error(), "ratchet message is required") {
 		t.Fatalf("expected missing ratchet message error, got %v", err)
 	}
 }
 
-func TestRespondRejectsInvalidSignature(t *testing.T) {
-	fixture := newHandshakeFixture(t)
-	fixture.preKeyMsg.Signature = append([]byte(nil), fixture.preKeyMsg.Signature...)
-	fixture.preKeyMsg.Signature[0] ^= 0xFF
-
-	if _, err := Respond(fixture.bobPrivateDevice, fixture.bobPrivateBundle, fixture.alicePublicDevice, fixture.preKeyMsg); err == nil || !strings.Contains(err.Error(), "invalid signature") {
-		t.Fatalf("expected invalid signature error, got %v", err)
-	}
-}
-
 func TestRespondRejectsInvalidKeyLength(t *testing.T) {
 	fixture := newHandshakeFixture(t)
 	fixture.preKeyMsg.IKPub = []byte{1, 2, 3}
-	fixture.preKeyMsg.Signature = ed448.Sign(
-		fixture.alicePrivateDevice.SignatureKey,
-		protocol.BuildPrekeyMessageBundleHash(fixture.preKeyMsg),
-		protocol.PrekeyMessageBundleDomainPrefix,
-	)
 
 	if _, err := Respond(fixture.bobPrivateDevice, fixture.bobPrivateBundle, fixture.alicePublicDevice, fixture.preKeyMsg); err == nil || !strings.Contains(err.Error(), "invalid x448 key length") {
 		t.Fatalf("expected invalid x448 key length error, got %v", err)
@@ -258,11 +236,6 @@ func TestRespondRejectsInvalidKeyLength(t *testing.T) {
 func TestRespondRejectsInvalidKyberCiphertextSize(t *testing.T) {
 	fixture := newHandshakeFixture(t)
 	fixture.preKeyMsg.KyberCiphertext = []byte("bad")
-	fixture.preKeyMsg.Signature = ed448.Sign(
-		fixture.alicePrivateDevice.SignatureKey,
-		protocol.BuildPrekeyMessageBundleHash(fixture.preKeyMsg),
-		protocol.PrekeyMessageBundleDomainPrefix,
-	)
 
 	if _, err := Respond(fixture.bobPrivateDevice, fixture.bobPrivateBundle, fixture.alicePublicDevice, fixture.preKeyMsg); err == nil || !strings.Contains(err.Error(), "invalid ciphertext size") {
 		t.Fatalf("expected invalid ciphertext size error, got %v", err)

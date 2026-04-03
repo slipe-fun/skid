@@ -86,7 +86,6 @@ func (prekey *PrivatePreKeyBundle) Consume() error {
 	}
 
 	prekey.Consumed = true
-	clear(prekey.SPK_Priv[:])
 	clear(prekey.OPK_Priv[:])
 	clear(prekey.Kyber768_Priv)
 	prekey.Kyber768_Priv = nil
