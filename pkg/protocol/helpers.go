@@ -6,7 +6,9 @@ import (
 	"encoding/binary"
 )
 
-var aadDomainPrefix = sha256.Sum256([]byte("SKID-PROTOCOL-V1-AAD"))
+var (
+	aadDomainPrefix = sha256.Sum256([]byte("SKID-PROTOCOL-V1-AAD"))
+)
 
 func GenerateAAD(
 	message *RatchetMessage,

@@ -13,14 +13,24 @@ import (
 func main() {
 	//bob
 
-	bobPublicPreKeyBundle, bobPrivatePreKeyBundle, err := identity.NewPreKeyBundle()
+	bobPublicDevice, bobPrivateDevice, err := identity.NewDevice()
+	if err != nil {
+		panic(err)
+	}
+
+	bobPublicPreKeyBundle, bobPrivatePreKeyBundle, err := identity.NewPreKeyBundle(bobPublicDevice, bobPrivateDevice)
 	if err != nil {
 		panic(err)
 	}
 
 	//alice
 
-	aliceIK_Pub, aliceIK_Priv, err := crypto.GenerateECDHKeyPair()
+	alicePublicDevice, alicePrivateDevice, err := identity.NewDevice()
+	if err != nil {
+		panic(err)
+	}
+
+	alicePublicPreKeyBundle, alicePrivatePreKeyBundle, err := identity.NewPreKeyBundle(alicePublicDevice, alicePrivateDevice)
 	if err != nil {
 		panic(err)
 	}
@@ -30,7 +40,7 @@ func main() {
 		panic(err)
 	}
 
-	aliceSharedKey, aliceInitialMessage, err := handshake.Initiate(aliceIK_Pub, aliceIK_Priv, aliceEK_Pub, aliceEK_Priv, bobPublicPreKeyBundle)
+	aliceSharedKey, aliceInitialMessage, err := handshake.Initiate(alicePublicPreKeyBundle.IK_Pub, alicePrivatePreKeyBundle.IK_Priv, aliceEK_Pub, aliceEK_Priv, bobPublicPreKeyBundle)
 	if err != nil {
 		panic(err)
 	}
@@ -45,7 +55,7 @@ func main() {
 		panic(err)
 	}
 
-	message, err := aliceDR.Encrypt(chatKey, aliceIK_Pub[:], bobPublicPreKeyBundle.IK_Pub[:])
+	message, err := aliceDR.Encrypt(chatKey, alicePublicPreKeyBundle.IK_Pub[:], bobPublicPreKeyBundle.IK_Pub[:])
 	if err != nil {
 		panic(err)
 	}
@@ -61,7 +71,7 @@ func main() {
 
 	bobDR := protocol.NewSessionResponder(bobSharedKey, bobPrivatePreKeyBundle.IK_Priv)
 
-	plain, err := bobDR.Decrypt(message, aliceIK_Pub[:], bobPublicPreKeyBundle.IK_Pub[:])
+	plain, err := bobDR.Decrypt(message, alicePublicPreKeyBundle.IK_Pub[:], bobPublicPreKeyBundle.IK_Pub[:])
 	if err != nil {
 		panic(err)
 	}
