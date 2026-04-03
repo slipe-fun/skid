@@ -37,7 +37,9 @@ func NewSessionInitiator(sharedKey []byte, bobRatchetPub x448.Key) (*Session, er
 		skippedKeys: make(map[string][]byte),
 	}
 
-	rand.Read(s.localDH[:])
+	if _, err := rand.Read(s.localDH[:]); err != nil {
+		return nil, fmt.Errorf("crypto/rand failed to generate local DH key: %w", err)
+	}
 	x448.KeyGen(&s.localPub, &s.localDH)
 
 	var dhOut x448.Key
@@ -122,7 +124,9 @@ func (s *Session) performRatchetStep(header *Header) error {
 	}
 	s.rootKey, s.recvCK = kdfRK(s.rootKey, dhOut1[:])
 
-	rand.Read(s.localDH[:])
+	if _, err := rand.Read(s.localDH[:]); err != nil {
+		return fmt.Errorf("crypto/rand failed to generate step DH key: %w", err)
+	}
 	x448.KeyGen(&s.localPub, &s.localDH)
 
 	var dhOut2 x448.Key
