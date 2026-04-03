@@ -45,7 +45,7 @@ func main() {
 		panic(err)
 	}
 
-	cipher, iv, header, err := aliceDR.Encrypt(chatKey, aliceIK_Pub[:], bobPublicPreKeyBundle.IK_Pub[:])
+	message, err := aliceDR.Encrypt(chatKey, aliceIK_Pub[:], bobPublicPreKeyBundle.IK_Pub[:])
 	if err != nil {
 		panic(err)
 	}
@@ -61,7 +61,7 @@ func main() {
 
 	bobDR := protocol.NewSessionResponder(bobSharedKey, bobPrivatePreKeyBundle.IK_Priv)
 
-	plain, err := bobDR.Decrypt(cipher, iv, header, aliceIK_Pub[:], bobPublicPreKeyBundle.IK_Pub[:])
+	plain, err := bobDR.Decrypt(message, aliceIK_Pub[:], bobPublicPreKeyBundle.IK_Pub[:])
 	if err != nil {
 		panic(err)
 	}

@@ -9,7 +9,7 @@ import (
 var aadDomainPrefix = sha256.Sum256([]byte("SKID-PROTOCOL-V1-AAD"))
 
 func GenerateAAD(
-	header *Header,
+	message *RatchetMessage,
 	aliceIK, bobIK []byte,
 ) []byte {
 	firstIK, secondIK := aliceIK, bobIK
@@ -17,20 +17,23 @@ func GenerateAAD(
 		firstIK, secondIK = bobIK, aliceIK
 	}
 
-	aad := make([]byte, 0, 208)
+	aad := make([]byte, 0, 64+len(firstIK)+len(secondIK)+len(message.SessionID)+len(message.RatchetPub))
 
 	aad = append(aad, aadDomainPrefix[:]...)
 
 	aad = append(aad, firstIK...)
 	aad = append(aad, secondIK...)
 
-	aad = append(aad, header.RatchetPub[:]...)
+	aad = append(aad, message.Version)
+	aad = append(aad, message.Type)
+	aad = append(aad, message.SessionID...)
+	aad = append(aad, message.RatchetPub...)
 
 	buf := make([]byte, 4)
-	binary.BigEndian.PutUint32(buf, header.Index)
+	binary.BigEndian.PutUint32(buf, message.Index)
 	aad = append(aad, buf...)
 
-	binary.BigEndian.PutUint32(buf, header.PrevIdx)
+	binary.BigEndian.PutUint32(buf, message.PrevIdx)
 	aad = append(aad, buf...)
 
 	return aad

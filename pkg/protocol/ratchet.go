@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"bytes"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -106,44 +107,72 @@ func RestoreSession(state *SessionState) *Session {
 	}
 }
 
-func (s *Session) Encrypt(plaintext, aliceIK, bobIK []byte) (ciphertext, iv []byte, header *Header, err error) {
+func (s *Session) Encrypt(plaintext, aliceIK, bobIK []byte) (*RatchetMessage, error) {
 	if len(s.sendCK) == 0 {
-		return nil, nil, nil, errors.New("cannot encrypt: session is not fully initialized")
+		return nil, errors.New("cannot encrypt: session is not fully initialized")
 	}
 	newCK, msgKey := kdfCK(s.sendCK)
 	s.sendCK = newCK
 
-	header = &Header{
-		RatchetPub: s.localPub,
+	message := &RatchetMessage{
+		Version:    CurrentVersion,
+		Type:       MessageTypeRatchet,
+		RatchetPub: append([]byte(nil), s.localPub[:]...),
 		Index:      s.sendIdx,
 		PrevIdx:    s.prevMsg,
 	}
 
 	s.sendIdx++
 
-	aad := GenerateAAD(header, aliceIK, bobIK)
+	aad := GenerateAAD(message, aliceIK, bobIK)
 
-	ciphertext, iv, err = crypto.Encrypt(msgKey, plaintext, aad)
-	return
-}
-
-func (s *Session) Decrypt(ciphertext, iv []byte, header *Header, aliceIK, bobIK []byte) ([]byte, error) {
-	aad := GenerateAAD(header, aliceIK, bobIK)
-
-	keyID := fmt.Sprintf("%x_%d", header.RatchetPub, header.Index)
-	if key, ok := s.skippedKeys[keyID]; ok {
-		delete(s.skippedKeys, keyID)
-		return crypto.Decrypt(key, ciphertext, iv, aad)
+	ciphertext, nonce, err := crypto.Encrypt(msgKey, plaintext, aad)
+	if err != nil {
+		return nil, err
 	}
 
-	if header.RatchetPub != s.remotePub {
-		if err := s.performRatchetStep(header); err != nil {
+	message.Ciphertext = ciphertext
+	message.Nonce = nonce
+
+	return message, nil
+}
+
+func (s *Session) Decrypt(message *RatchetMessage, aliceIK, bobIK []byte) ([]byte, error) {
+	if message == nil {
+		return nil, errors.New("cannot decrypt: nil message")
+	}
+	if message.Version != CurrentVersion {
+		return nil, fmt.Errorf("unsupported message version: %d", message.Version)
+	}
+	if message.Type != MessageTypeRatchet {
+		return nil, fmt.Errorf("unexpected message type: %d", message.Type)
+	}
+
+	remotePub, err := decodeRatchetPub(message.RatchetPub)
+	if err != nil {
+		return nil, err
+	}
+
+	aad := GenerateAAD(message, aliceIK, bobIK)
+
+	keyID := fmt.Sprintf("%x_%d", message.RatchetPub, message.Index)
+	if key, ok := s.skippedKeys[keyID]; ok {
+		plaintext, err := crypto.Decrypt(key, message.Ciphertext, message.Nonce, aad)
+		if err != nil {
+			return nil, err
+		}
+		delete(s.skippedKeys, keyID)
+		return plaintext, nil
+	}
+
+	if !bytes.Equal(message.RatchetPub, s.remotePub[:]) {
+		if err := s.performRatchetStep(remotePub); err != nil {
 			return nil, err
 		}
 	}
 
-	if header.Index > s.recvIdx {
-		if err := s.skipMessages(header.Index); err != nil {
+	if message.Index > s.recvIdx {
+		if err := s.skipMessages(message.Index); err != nil {
 			return nil, err
 		}
 	}
@@ -152,14 +181,14 @@ func (s *Session) Decrypt(ciphertext, iv []byte, header *Header, aliceIK, bobIK 
 	s.recvCK = newCK
 	s.recvIdx++
 
-	return crypto.Decrypt(msgKey, ciphertext, iv, aad)
+	return crypto.Decrypt(msgKey, message.Ciphertext, message.Nonce, aad)
 }
 
-func (s *Session) performRatchetStep(header *Header) error {
+func (s *Session) performRatchetStep(remotePub x448.Key) error {
 	s.prevMsg = s.sendIdx
 	s.sendIdx = 0
 	s.recvIdx = 0
-	s.remotePub = header.RatchetPub
+	s.remotePub = remotePub
 
 	var dhOut1 x448.Key
 	if !x448.Shared(&dhOut1, &s.localDH, &s.remotePub) {
@@ -179,6 +208,15 @@ func (s *Session) performRatchetStep(header *Header) error {
 	s.rootKey, s.sendCK = kdfRK(s.rootKey, dhOut2[:])
 
 	return nil
+}
+
+func decodeRatchetPub(pub []byte) (x448.Key, error) {
+	var key x448.Key
+	if len(pub) != len(key) {
+		return x448.Key{}, fmt.Errorf("invalid ratchet public key length: got %d want %d", len(pub), len(key))
+	}
+	copy(key[:], pub)
+	return key, nil
 }
 
 func (s *Session) skipMessages(untilIndex uint32) error {
@@ -204,10 +242,4 @@ func (s *Session) skipMessages(untilIndex uint32) error {
 	}
 
 	return nil
-}
-
-type Header struct {
-	RatchetPub x448.Key
-	Index      uint32
-	PrevIdx    uint32
 }
