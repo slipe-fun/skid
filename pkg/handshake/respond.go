@@ -1,6 +1,9 @@
 package handshake
 
 import (
+	"fmt"
+
+	"github.com/cloudflare/circl/dh/x448"
 	"github.com/slipe-fun/skid/internal/crypto"
 	"github.com/slipe-fun/skid/pkg/identity"
 	"github.com/slipe-fun/skid/pkg/protocol"
@@ -8,9 +11,29 @@ import (
 
 func Respond(
 	bobBundle *identity.PrivatePreKeyBundle,
-	aliceMsg *protocol.InitialMessage,
+	aliceMsg *protocol.PreKeyMessage,
 ) ([]byte, error) {
-	b_dh1, b_dh2, b_dh3, b_dh4, err := crypto.X3DH_Responder(bobBundle.IK_Priv, bobBundle.SPK_Priv, bobBundle.OPK_Priv, aliceMsg.IK_Pub, aliceMsg.EK_Pub)
+	if aliceMsg == nil {
+		return nil, fmt.Errorf("nil prekey message")
+	}
+	if aliceMsg.Version != protocol.CurrentVersion {
+		return nil, fmt.Errorf("unsupported prekey message version: %d", aliceMsg.Version)
+	}
+	if aliceMsg.Type != protocol.MessageTypePreKey {
+		return nil, fmt.Errorf("unexpected prekey message type: %d", aliceMsg.Type)
+	}
+
+	aliceIK, err := decodeX448Key(aliceMsg.IKPub)
+	if err != nil {
+		return nil, err
+	}
+
+	aliceEK, err := decodeX448Key(aliceMsg.EKPub)
+	if err != nil {
+		return nil, err
+	}
+
+	b_dh1, b_dh2, b_dh3, b_dh4, err := crypto.X3DH_Responder(bobBundle.IK_Priv, bobBundle.SPK_Priv, bobBundle.OPK_Priv, aliceIK, aliceEK)
 	if err != nil {
 		return nil, err
 	}
@@ -23,4 +46,13 @@ func Respond(
 	bobSharedKey := crypto.DeriveHybridKey(b_dh1[:], b_dh2[:], b_dh3[:], b_dh4[:], bobKyberSecret)
 
 	return bobSharedKey, err
+}
+
+func decodeX448Key(raw []byte) (x448.Key, error) {
+	var key x448.Key
+	if len(raw) != len(key) {
+		return x448.Key{}, fmt.Errorf("invalid x448 key length: got %d want %d", len(raw), len(key))
+	}
+	copy(key[:], raw)
+	return key, nil
 }

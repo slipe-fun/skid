@@ -14,7 +14,7 @@ func Initiate(
 	aliceIK_Pub, aliceIK_Priv x448.Key,
 	aliceEK_Pub, aliceEK_Priv x448.Key,
 	bobBundle *identity.PublicPreKeyBundle,
-) ([]byte, *protocol.InitialMessage, error) {
+) ([]byte, *protocol.PreKeyMessage, error) {
 	if valid := ed448.Verify(bobBundle.Signature_Pub, identity.BuildPrekeyBundleHash(bobBundle), bobBundle.Signature, identity.PrekeyBundleDomainPrefix); !valid {
 		return nil, nil, errors.New("invalid signature")
 	}
@@ -31,11 +31,13 @@ func Initiate(
 
 	aliceSharedKey := crypto.DeriveHybridKey(dh1[:], dh2[:], dh3[:], dh4[:], aliceKyberSecret)
 
-	aliceInitialMessage := &protocol.InitialMessage{
-		IK_Pub:          aliceIK_Pub,
-		EK_Pub:          aliceEK_Pub,
+	aliceInitialMessage := &protocol.PreKeyMessage{
+		Version:         protocol.CurrentVersion,
+		Type:            protocol.MessageTypePreKey,
+		IKPub:           append([]byte(nil), aliceIK_Pub[:]...),
+		EKPub:           append([]byte(nil), aliceEK_Pub[:]...),
 		KyberCiphertext: kyberCiphertext,
 	}
 
-	return aliceSharedKey, aliceInitialMessage, err
+	return aliceSharedKey, aliceInitialMessage, nil
 }
