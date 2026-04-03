@@ -268,3 +268,18 @@ func TestRespondRejectsInvalidKyberCiphertextSize(t *testing.T) {
 		t.Fatalf("expected invalid ciphertext size error, got %v", err)
 	}
 }
+
+func TestRespondRejectsReusedPreKeyBundle(t *testing.T) {
+	fixture := newHandshakeFixture(t)
+
+	if _, err := Respond(fixture.bobPrivateDevice, fixture.bobPrivateBundle, fixture.alicePublicDevice, fixture.preKeyMsg); err != nil {
+		t.Fatalf("first Respond: %v", err)
+	}
+	if !fixture.bobPrivateBundle.Consumed {
+		t.Fatal("expected prekey bundle to be consumed after successful respond")
+	}
+
+	if _, err := Respond(fixture.bobPrivateDevice, fixture.bobPrivateBundle, fixture.alicePublicDevice, fixture.preKeyMsg); err == nil || !strings.Contains(err.Error(), "already consumed") {
+		t.Fatalf("expected consumed bundle error, got %v", err)
+	}
+}

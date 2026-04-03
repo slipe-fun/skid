@@ -14,6 +14,9 @@ func Respond(
 	bobDevice *identity.PrivateDevice, bobBundle *identity.PrivatePreKeyBundle,
 	aliceDevice *identity.PublicDevice, aliceMsg *protocol.PreKeyMessage,
 ) ([]byte, error) {
+	if bobBundle == nil {
+		return nil, fmt.Errorf("nil prekey bundle")
+	}
 	if aliceMsg == nil {
 		return nil, fmt.Errorf("nil prekey message")
 	}
@@ -25,6 +28,9 @@ func Respond(
 	}
 	if aliceMsg.Message == nil {
 		return nil, fmt.Errorf("ratchet message is required")
+	}
+	if bobBundle.Consumed {
+		return nil, fmt.Errorf("prekey bundle already consumed")
 	}
 
 	if valid := ed448.Verify(aliceDevice.SignatureKey, protocol.BuildPrekeyMessageBundleHash(aliceMsg), aliceMsg.Signature, protocol.PrekeyMessageBundleDomainPrefix); !valid {
@@ -52,8 +58,11 @@ func Respond(
 	}
 
 	bobSharedKey := crypto.DeriveHybridKey(b_dh1[:], b_dh2[:], b_dh3[:], b_dh4[:], bobKyberSecret)
+	if err := bobBundle.Consume(); err != nil {
+		return nil, err
+	}
 
-	return bobSharedKey, err
+	return bobSharedKey, nil
 }
 
 func decodeX448Key(raw []byte) (x448.Key, error) {

@@ -2,6 +2,7 @@ package identity
 
 import (
 	"crypto/sha256"
+	"errors"
 
 	"github.com/cloudflare/circl/dh/x448"
 	"github.com/cloudflare/circl/sign/ed448"
@@ -22,6 +23,7 @@ type PrivatePreKeyBundle struct {
 	SPK_Priv      x448.Key
 	OPK_Priv      x448.Key
 	Kyber768_Priv []byte
+	Consumed      bool
 }
 
 func NewPreKeyBundle(publicDevice *PublicDevice, privateDevice *PrivateDevice) (*PublicPreKeyBundle, *PrivatePreKeyBundle, error) {
@@ -73,4 +75,21 @@ func BuildPrekeyBundleHash(prekey *PublicPreKeyBundle) []byte {
 	msg := GeneratePrekeyBundleMessage(prekey)
 	sum := sha256.Sum256(msg)
 	return sum[:]
+}
+
+func (prekey *PrivatePreKeyBundle) Consume() error {
+	if prekey == nil {
+		return errors.New("nil private prekey bundle")
+	}
+	if prekey.Consumed {
+		return errors.New("prekey bundle already consumed")
+	}
+
+	prekey.Consumed = true
+	clear(prekey.SPK_Priv[:])
+	clear(prekey.OPK_Priv[:])
+	clear(prekey.Kyber768_Priv)
+	prekey.Kyber768_Priv = nil
+
+	return nil
 }

@@ -49,7 +49,7 @@ func main() {
 		panic(err)
 	}
 
-	aliceDR, err := protocol.NewSessionInitiator(aliceSharedKey, bobPublicDevice.IK)
+	aliceDR, err := protocol.NewSessionInitiator(aliceSharedKey, bobPublicPreKeyBundle.SPK_Pub)
 	if err != nil {
 		panic(err)
 	}
@@ -75,7 +75,7 @@ func main() {
 		panic(err)
 	}
 
-	bobDR := protocol.NewSessionResponder(bobSharedKey, bobPrivateDevice.IK)
+	bobDR := protocol.NewSessionResponder(bobSharedKey, bobPrivatePreKeyBundle.SPK_Priv)
 
 	plain, err := bobDR.Decrypt(aliceInitialMessage.Message, alicePublicDevice.IK[:], bobPublicDevice.IK[:])
 	if err != nil {
